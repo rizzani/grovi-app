@@ -338,8 +338,67 @@ export async function getAllCategories(): Promise<Category[]> {
     );
     return response.documents as Category[];
   } catch (error: any) {
-    console.error("Error fetching all categories:", error);
-    return [];
+    console.error("[Categories] Error fetching all categories:", error);
+    throw error;
+  }
+}
+
+/**
+ * Get the first available product image for each requested category.
+ * Category paths are included so parent categories can use a descendant product image.
+ */
+export async function getCategoryImageUrls(
+  categoryIds: string[]
+): Promise<Record<string, string>> {
+  if (categoryIds.length === 0) return {};
+
+  const requestedIds = new Set(categoryIds);
+  const imageUrls: Record<string, string> = {};
+  const pageSize = 100;
+  let offset = 0;
+  let total = 0;
+
+  try {
+    do {
+      const response = await databases.listDocuments(
+        databaseId,
+        PRODUCTS_COLLECTION_ID,
+        [
+          Query.orderAsc("$sequence"),
+          Query.limit(pageSize),
+          Query.offset(offset),
+        ]
+      );
+
+      total = response.total;
+
+      response.documents.forEach((document: any) => {
+        if (!document.primary_image_url) return;
+
+        const productCategoryIds = new Set<string>([
+          ...(Array.isArray(document.category_path_ids)
+            ? document.category_path_ids
+            : []),
+          ...(document.category_leaf_id ? [document.category_leaf_id] : []),
+        ]);
+
+        productCategoryIds.forEach((categoryId) => {
+          if (requestedIds.has(categoryId) && !imageUrls[categoryId]) {
+            imageUrls[categoryId] = document.primary_image_url;
+          }
+        });
+      });
+
+      offset += response.documents.length;
+    } while (
+      offset < total &&
+      Object.keys(imageUrls).length < requestedIds.size
+    );
+
+    return imageUrls;
+  } catch (error: any) {
+    console.error("[Categories] Error fetching category images:", error);
+    throw error;
   }
 }
 
