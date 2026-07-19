@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   BackHandler,
@@ -19,9 +19,20 @@ import {
   getAllCategories,
   getCategoryImageUrls,
   getSearchSuggestions,
-  searchProductsPaginated,
   SearchResult,
 } from "../../lib/search-service";
+import { getProductsByCategory } from "../../lib/category-service";
+import {
+  fetchCategoryProductsOnce,
+  getCachedCategories,
+  getCachedCategoryProducts,
+  isCategoriesFresh,
+  isCategoryProductsFresh,
+  setCachedCategories,
+  setCachedCategoryProducts,
+} from "../../lib/category-cache";
+
+const CATEGORY_PAGE_SIZE = 25;
 
 export default function CategoriesScreen() {
   const router = useRouter();
@@ -37,35 +48,73 @@ export default function CategoriesScreen() {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [products, setProducts] = useState<SearchResult[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
+  const [productsBackgroundLoading, setProductsBackgroundLoading] =
+    useState(false);
   const [productsError, setProductsError] = useState<string | null>(null);
+  const selectedCategoryIdRef = useRef<string | null>(null);
+  const mountedRef = useRef(true);
 
   const loadCategories = useCallback(async () => {
-    try {
-      setLoading(true);
+    const cachedEntry = await getCachedCategories();
+
+    if (cachedEntry && mountedRef.current) {
+      setCategories(cachedEntry.categories);
+      setCategoryImageUrls(cachedEntry.imageUrls);
+      setLoading(false);
       setError(null);
+      if (isCategoriesFresh(cachedEntry)) return;
+    }
+
+    try {
+      if (!cachedEntry && mountedRef.current) {
+        setLoading(true);
+        setError(null);
+      }
       const categoryDocuments = await getAllCategories();
+
+      if (mountedRef.current) {
+        setCategories(categoryDocuments);
+        setLoading(false);
+      }
+
+      // Persist and display category names before the slower image discovery.
+      await setCachedCategories(
+        categoryDocuments,
+        cachedEntry?.imageUrls || {},
+        0
+      );
+
       const imageUrls = await getCategoryImageUrls(
         categoryDocuments.map((category) => category.$id)
       );
-      setCategories(categoryDocuments);
-      setCategoryImageUrls(imageUrls);
+      await setCachedCategories(categoryDocuments, imageUrls);
+
+      if (mountedRef.current) {
+        setCategoryImageUrls(imageUrls);
+      }
     } catch (loadError: unknown) {
       const message =
         loadError instanceof Error
           ? loadError.message
           : "Unable to load categories";
       console.error("[Categories] Failed to load categories:", loadError);
-      setCategories([]);
-      setCategoryImageUrls({});
-      setError(message);
+      if (!cachedEntry && mountedRef.current) {
+        setCategories([]);
+        setCategoryImageUrls({});
+        setError(message);
+      }
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    mountedRef.current = true;
     loadCategories();
-  }, [loadCategories]);
+    return () => {
+      mountedRef.current = false;
+    };
+ b  }, [loadCategories]);
 
   // Load search suggestions as user types
   useEffect(() => {
@@ -90,42 +139,105 @@ export default function CategoriesScreen() {
     performSearch(suggestion.text);
   };
 
-  const loadCategoryProducts = useCallback(async (category: Category) => {
+  const loadCategoryProducts = useCallback(async (
+    category: Category,
+    hasCachedProducts: boolean
+  ) => {
     try {
-      setProductsLoading(true);
-      setProductsError(null);
-      const response = await searchProductsPaginated(
-        category.name,
-        { page: 1, pageSize: 10000 },
-        undefined,
-        "relevance",
-        null,
-        { categoryIds: [category.$id], inStock: false }
+      if (selectedCategoryIdRef.current === category.$id) {
+        setProductsLoading(!hasCachedProducts);
+        setProductsBackgroundLoading(hasCachedProducts);
+        setProductsError(null);
+      }
+
+      const completeProducts = await fetchCategoryProductsOnce(
+        category.$id,
+        async () => {
+          const loadedProducts: SearchResult[] = [];
+          let page = 1;
+          let hasMore = true;
+
+          while (hasMore) {
+            const response = await getProductsByCategory(
+              category.$id,
+              page,
+              CATEGORY_PAGE_SIZE
+            );
+            loadedProducts.push(...response.results);
+            hasMore = response.hasMore;
+
+            if (
+              !hasCachedProducts &&
+              selectedCategoryIdRef.current === category.$id
+            ) {
+              setProducts([...loadedProducts]);
+              setProductsLoading(false);
+              setProductsBackgroundLoading(hasMore);
+            }
+
+            await setCachedCategoryProducts(
+              category.$id,
+              loadedProducts,
+              !hasMore
+            );
+
+            page += 1;
+          }
+
+          return loadedProducts;
+        }
       );
-      setProducts(response.results);
+
+      if (selectedCategoryIdRef.current === category.$id) {
+        setProducts(completeProducts);
+      }
     } catch (loadError: unknown) {
       const message =
         loadError instanceof Error
           ? loadError.message
           : "Unable to load products";
       console.error("[Categories] Failed to load category products:", loadError);
-      setProducts([]);
-      setProductsError(message);
+      if (
+        !hasCachedProducts &&
+        selectedCategoryIdRef.current === category.$id
+      ) {
+        setProducts([]);
+        setProductsError(message);
+      }
     } finally {
-      setProductsLoading(false);
+      if (selectedCategoryIdRef.current === category.$id) {
+        setProductsLoading(false);
+        setProductsBackgroundLoading(false);
+      }
     }
   }, []);
 
-  const handleCategoryPress = (category: Category) => {
+  const handleCategoryPress = async (category: Category) => {
+    selectedCategoryIdRef.current = category.$id;
+    const cachedEntry = await getCachedCategoryProducts(category.$id);
+    if (selectedCategoryIdRef.current !== category.$id) return;
+
     setSelectedCategory(category);
-    setProducts([]);
-    loadCategoryProducts(category);
+    setProductsError(null);
+
+    if (cachedEntry) {
+      setProducts(cachedEntry.products);
+      setProductsLoading(false);
+      if (isCategoryProductsFresh(cachedEntry)) return;
+    } else {
+      setProducts([]);
+      setProductsLoading(true);
+    }
+
+    loadCategoryProducts(category, cachedEntry !== undefined);
   };
 
   const handleBackToCategories = useCallback(() => {
+    selectedCategoryIdRef.current = null;
     setSelectedCategory(null);
-    setProducts([]);
     setProductsError(null);
+    setProductsLoading(false);
+    setProductsBackgroundLoading(false);
   }, []);
 
   useEffect(() => {
@@ -276,7 +388,7 @@ export default function CategoriesScreen() {
             <Text style={styles.stateText}>{productsError}</Text>
             <Pressable
               accessibilityRole="button"
-              onPress={() => loadCategoryProducts(selectedCategory)}
+              onPress={() => loadCategoryProducts(selectedCategory, false)}
               style={styles.retryButton}
             >
               <Text style={styles.retryButtonText}>Retry</Text>
@@ -324,6 +436,16 @@ export default function CategoriesScreen() {
             </View>
           }
           ListEmptyComponent={renderProductState}
+          ListFooterComponent={
+            productsBackgroundLoading && products.length > 0 ? (
+              <View style={styles.backgroundLoadingRow}>
+                <ActivityIndicator size="small" color="#10B981" />
+                <Text style={styles.backgroundLoadingText}>
+                  Loading more products...
+                </Text>
+              </View>
+            ) : null
+          }
         />
       </SafeAreaView>
     );
@@ -548,6 +670,17 @@ const styles = StyleSheet.create({
   productMeta: {
     marginTop: 3,
     fontSize: 13,
+    color: "#6B7280",
+  },
+  backgroundLoadingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 16,
+  },
+  backgroundLoadingText: {
+    fontSize: 14,
     color: "#6B7280",
   },
   outOfStockText: {
