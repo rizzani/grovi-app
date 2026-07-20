@@ -1,10 +1,14 @@
 export enum OrderStatus {
+  Creating = "creating",
+  Placed = "placed",
   Pending = "pending",
   Confirmed = "confirmed",
   Processing = "processing",
   Dispatched = "dispatched",
   Delivered = "delivered",
   Cancelled = "cancelled",
+  Failed = "failed",
+  PartiallyFulfilled = "partially_fulfilled",
 }
 
 export enum StoreOrderStatus {
@@ -93,4 +97,10 @@ export interface OrderItem {
   quantity: number;
   unitPriceJmdCents: number;
   lineTotalJmdCents: number;
+}
+
+export interface OrdersPage {
+  orders: Order[];
+  nextCursor: string | null;
+  hasMore: boolean;
 }
