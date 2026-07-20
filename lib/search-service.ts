@@ -60,6 +60,20 @@ export interface Product {
   review_count?: number; // Optional: number of reviews - for future use
   createdAt?: string;
   updatedAt?: string;
+  $createdAt?: string;
+  isActive?: boolean;
+  isFeatured?: boolean;
+  featuredPriority?: number;
+  featuredStartAt?: string | null;
+  featuredEndAt?: string | null;
+  isEssential?: boolean;
+  manualPopularityScore?: number;
+  viewCount?: number;
+  cartAddCount?: number;
+  orderCount?: number;
+  salePrice?: number | null;
+  promotionStartAt?: string | null;
+  promotionEndAt?: string | null;
 }
 
 export interface Brand {
@@ -103,6 +117,7 @@ export interface StoreLocationProduct {
   category_path_ids?: string[];
   in_stock: boolean;
   price_jmd_cents: number;
+  sale_price_jmd_cents?: number | null;
   source_key?: string;
   external_id?: string;
   external_url?: string;
@@ -123,6 +138,7 @@ export interface SearchResult {
   inStock: boolean;
   sku: string;
   relevanceScore?: number; // Optional relevance score for debugging
+  storeProductSalePrice?: number | null;
 }
 
 /**

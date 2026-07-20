@@ -15,7 +15,8 @@
     "test:load": "tsx lib/search/load.test.ts",
     "test:ranking": "tsx lib/search/ranking.test.ts",
     "test:checkout-client": "tsx --test lib/checkout-lifecycle.test.ts",
-    "test:orders": "tsx --test lib/order-service.test.ts"
+    "test:orders": "tsx --test lib/order-service.test.ts",
+    "test:home-feed": "tsx --test lib/product-ranking.test.ts"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",

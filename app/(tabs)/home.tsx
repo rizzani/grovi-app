@@ -1,645 +1,75 @@
-import { useState, useEffect, useCallback } from "react";
-import { Text, View, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
+import { useEffect, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
+import SearchBar, { type SearchSuggestion } from "../../components/SearchBar";
+import HomeProductSection, { SectionSkeleton } from "../../components/HomeProductSection";
 import { useUser } from "../../contexts/UserContext";
-import { getPreferences } from "../../lib/preferences-service";
-import SearchBar from "../../components/SearchBar";
-import { useSearch } from "../../contexts/SearchContext";
 import { useCart } from "../../contexts/CartContext";
+import { useSearch } from "../../contexts/SearchContext";
 import { getSearchSuggestions } from "../../lib/search-service";
-
-// Section Header Component
-function SectionHeader({ 
-  title, 
-  showSeeAll = false, 
-  onSeeAllPress 
-}: { 
-  title: string; 
-  showSeeAll?: boolean; 
-  onSeeAllPress?: () => void;
-}) {
-  return (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {showSeeAll && (
-        <TouchableOpacity onPress={onSeeAllPress} activeOpacity={0.7}>
-          <View style={styles.seeAllButton}>
-            <Text style={styles.seeAllText}>See All</Text>
-          </View>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-}
+import { useHomeFeed } from "../../lib/use-home-feed";
 
 export default function HomeScreen() {
-  const deliveryAddress = "6382 East Greater Parkway";
-  const { userId } = useUser();
-  const { performSearch, recentSearches } = useSearch();
-  const { cart } = useCart();
   const router = useRouter();
-  const [categoryPreferences, setCategoryPreferences] = useState<string[]>([]);
-  const [isLoadingPreferences, setIsLoadingPreferences] = useState(true);
-  const [searchSuggestions, setSearchSuggestions] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  const { userId } = useUser();
+  const { cart } = useCart();
+  const { performSearch, recentSearches } = useSearch();
+  const { feed, deliveryLabel, isLoading, error, refresh } = useHomeFeed(userId);
+  const [query, setQuery] = useState("");
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
 
-  // Load preferences when screen is focused
-  useFocusEffect(
-    useCallback(() => {
-      loadPreferences();
-    }, [userId])
-  );
-
-  const loadPreferences = async () => {
-    if (!userId) {
-      setIsLoadingPreferences(false);
-      return;
-    }
-
-    try {
-      const preferences = await getPreferences(userId);
-      if (preferences && preferences.categoryPreferences) {
-        setCategoryPreferences(preferences.categoryPreferences);
-      } else {
-        setCategoryPreferences([]);
-      }
-    } catch (error) {
-      console.error("Failed to load preferences:", error);
-      setCategoryPreferences([]);
-    } finally {
-      setIsLoadingPreferences(false);
-    }
-  };
-
-  // Load search suggestions as user types
   useEffect(() => {
-    const loadSuggestions = async () => {
-      if (searchQuery.trim().length > 0) {
-        const suggestions = await getSearchSuggestions(searchQuery);
-        setSearchSuggestions(suggestions);
-      } else {
-        setSearchSuggestions([]);
-      }
-    };
+    const timer = setTimeout(() => {
+      if (!query.trim()) return setSuggestions([]);
+      void getSearchSuggestions(query).then(setSuggestions).catch((suggestionError) =>
+        console.warn("[Home] Suggestions unavailable:", suggestionError));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query]);
 
-    const timeoutId = setTimeout(loadSuggestions, 300); // Debounce
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+  const seeAll = () => router.push("/(tabs)/search");
+  return <SafeAreaView style={styles.container} edges={["top"]}>
+    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}
+      refreshControl={<RefreshControl refreshing={isLoading && Boolean(feed)} onRefresh={refresh} tintColor="#10B981" />}>
+      <View style={styles.searchRow}><View style={styles.search}><SearchBar placeholder="Search products"
+        onSearch={performSearch} onSuggestionSelect={(item) => performSearch(item.text)} suggestions={suggestions}
+        showSuggestions onChangeText={setQuery} recentSearches={recentSearches} onRecentSearchPress={performSearch} /></View>
+        <Pressable style={styles.cart} onPress={() => router.push("/cart")}><Ionicons name="cart-outline" size={25} color="#111827" />
+          {cart.totalItems > 0 && <View style={styles.badge}><Text style={styles.badgeText}>{Math.min(cart.totalItems, 99)}</Text></View>}</Pressable></View>
+      <Pressable style={styles.location} onPress={() => router.push("/addresses")}>
+        <Ionicons name="location" size={18} color="#10B981" /><View><Text style={styles.deliver}>Deliver to</Text><Text style={styles.address}>{deliveryLabel}</Text></View>
+        <Ionicons name="chevron-forward" size={18} color="#9CA3AF" /></Pressable>
+      <View style={styles.banner}><View style={styles.bannerCopy}><Text style={styles.bannerEyebrow}>FRESH FOR LESS</Text>
+        <Text style={styles.bannerTitle}>Everyday groceries,{"\n"}<Text style={styles.green}>delivered simply.</Text></Text>
+        <Text style={styles.bannerText}>Discover seasonal offers from Grovi partners.</Text></View>
+        <Ionicons name="basket" size={68} color="#A7F3D0" /></View>
 
-  const handleSearch = (query: string) => {
-    performSearch(query);
-  };
-
-  const handleSuggestionSelect = (suggestion: any) => {
-    performSearch(suggestion.text);
-  };
-
-  return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Top Header */}
-        <View style={styles.topHeader}>
-          <View style={styles.locationContainer}>
-            <Ionicons name="location" size={18} color="#10B981" />
-            <Text style={styles.deliverToText}>Deliver To</Text>
-            <Text style={styles.addressText}>{deliveryAddress}</Text>
-          </View>
-          <TouchableOpacity 
-            activeOpacity={0.7} 
-            style={styles.cartButton}
-            onPress={() => router.push("/cart")}
-          >
-            <Ionicons name="cart-outline" size={24} color="#111827" />
-            {cart.totalItems > 0 && (
-              <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>
-                  {cart.totalItems > 99 ? "99+" : cart.totalItems}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Search Bar */}
-        <View style={styles.searchWrapper}>
-          <SearchBar
-            placeholder="Search Product"
-            onSearch={handleSearch}
-            onSuggestionSelect={handleSuggestionSelect}
-            suggestions={searchSuggestions}
-            showSuggestions={true}
-            onChangeText={setSearchQuery}
-            recentSearches={recentSearches}
-            onRecentSearchPress={(query) => performSearch(query)}
-          />
-        </View>
-
-        {/* Promotional Banner */}
-        <View style={styles.promoBanner}>
-          <View style={styles.promoContent}>
-            <View style={styles.promoTextContainer}>
-              <Text style={styles.promoText}>
-                Summer Discount up to <Text style={styles.promoHighlight}>30% off</Text> seasonal favorites
-              </Text>
-            </View>
-          </View>
-          <View style={styles.promoImagePlaceholder}>
-            {/* Placeholder for promotional image */}
-          </View>
-        </View>
-
-        {/* Recommended for You Section - Only show if preferences are set */}
-        {!isLoadingPreferences && categoryPreferences.length > 0 && (
-          <View style={styles.section}>
-            <SectionHeader title="Recommended for You" showSeeAll />
-            <View style={styles.recommendedCard}>
-              <View style={styles.recommendedContent}>
-                <Ionicons name="sparkles" size={24} color="#10B981" />
-                <Text style={styles.recommendedTitle}>Personalized for You</Text>
-                <Text style={styles.recommendedDescription}>
-                  Based on your preferences: {categoryPreferences.slice(0, 3).join(", ")}
-                  {categoryPreferences.length > 3 && ` +${categoryPreferences.length - 3} more`}
-                </Text>
-                <Text style={styles.recommendedSubtext}>
-                  We're curating products from your favorite categories
-                </Text>
-              </View>
-            </View>
-            <ScrollView 
-              horizontal 
-              showsHorizontalScrollIndicator={false}
-              style={styles.horizontalScroll}
-              contentContainerStyle={styles.horizontalScrollContent}
-            >
-              <View style={styles.productCard}>
-                <View style={styles.productImagePlaceholder} />
-                <Text style={styles.productName}>Recommended Item</Text>
-                <Text style={styles.productPrice}>Based on your preferences</Text>
-              </View>
-              <View style={styles.productCard}>
-                <View style={styles.productImagePlaceholder} />
-                <Text style={styles.productName}>Recommended Item</Text>
-                <Text style={styles.productPrice}>Based on your preferences</Text>
-              </View>
-              <View style={styles.productCard}>
-                <View style={styles.productImagePlaceholder} />
-                <Text style={styles.productName}>Recommended Item</Text>
-                <Text style={styles.productPrice}>Based on your preferences</Text>
-              </View>
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Quick Category Filters */}
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false}
-          style={styles.categoryFilters}
-          contentContainerStyle={styles.categoryFiltersContent}
-        >
-          <TouchableOpacity style={styles.categoryFilter}>
-            <Ionicons name="nutrition-outline" size={20} color="#FFFFFF" />
-            <Text style={styles.categoryFilterText}>Fruits</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.categoryFilter}>
-            <Ionicons name="leaf" size={20} color="#FFFFFF" />
-            <Text style={styles.categoryFilterText}>Vegetables</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.categoryFilter}>
-            <Ionicons name="cafe" size={20} color="#FFFFFF" />
-            <Text style={styles.categoryFilterText}>Dairy</Text>
-          </TouchableOpacity>
-        </ScrollView>
-
-        {/* Shop By Store Section */}
-        <View style={styles.section}>
-          <SectionHeader title="Shop By Store" showSeeAll />
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            style={styles.horizontalScroll}
-            contentContainerStyle={styles.horizontalScrollContent}
-          >
-            <View style={styles.storeCard}>
-              <View style={styles.storeImagePlaceholder} />
-              <Text style={styles.storeName}>Fresh Foods Market</Text>
-            </View>
-            <View style={styles.storeCard}>
-              <View style={styles.storeImagePlaceholder} />
-              <Text style={styles.storeName}>Local Deli</Text>
-            </View>
-            <View style={styles.storeCard}>
-              <View style={styles.storeImagePlaceholder} />
-              <Text style={styles.storeName}>Store Name</Text>
-            </View>
-          </ScrollView>
-        </View>
-
-        {/* Buy Again Section */}
-        <View style={styles.section}>
-          <SectionHeader title="Buy Again" />
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            style={styles.horizontalScroll}
-            contentContainerStyle={styles.horizontalScrollContent}
-          >
-            <View style={styles.productCard}>
-              <View style={styles.productImagePlaceholder} />
-              <Text style={styles.productName}>Whole Wheat Bread</Text>
-            </View>
-            <View style={styles.productCard}>
-              <View style={styles.productImagePlaceholder} />
-              <Text style={styles.productName}>Fuji Apple</Text>
-            </View>
-            <View style={styles.productCard}>
-              <View style={styles.productImagePlaceholder} />
-              <Text style={styles.productName}>Product Name</Text>
-            </View>
-          </ScrollView>
-        </View>
-
-        {/* Popular Near You Section */}
-        <View style={styles.section}>
-          <SectionHeader title="Popular Near You" showSeeAll />
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            style={styles.horizontalScroll}
-            contentContainerStyle={styles.horizontalScrollContent}
-          >
-            <View style={styles.productCard}>
-              <View style={styles.productImagePlaceholder} />
-              <Text style={styles.productName}>Salmon Fillet</Text>
-            </View>
-            <View style={styles.productCard}>
-              <View style={styles.productImagePlaceholder} />
-              <Text style={styles.productName}>Ground Beef</Text>
-            </View>
-            <View style={styles.productCard}>
-              <View style={styles.productImagePlaceholder} />
-              <Text style={styles.productName}>Product Name</Text>
-            </View>
-          </ScrollView>
-        </View>
-
-        {/* Featured Products Section */}
-        <View style={styles.section}>
-          <SectionHeader title="Featured Products" showSeeAll />
-          <ScrollView 
-            horizontal 
-            showsHorizontalScrollIndicator={false}
-            style={styles.horizontalScroll}
-            contentContainerStyle={styles.horizontalScrollContent}
-          >
-            <View style={styles.productCard}>
-              <View style={styles.productImagePlaceholder} />
-              <Text style={styles.productName}>Avocados</Text>
-              <Text style={styles.productPrice}>$1.50 each</Text>
-            </View>
-            <View style={styles.productCard}>
-              <View style={styles.productImagePlaceholder} />
-              <Text style={styles.productName}>Bananas</Text>
-              <Text style={styles.productPrice}>$2.59/lb</Text>
-            </View>
-            <View style={styles.productCard}>
-              <View style={styles.productImagePlaceholder} />
-              <Text style={styles.productName}>Product Name</Text>
-              <Text style={styles.productPrice}>$0.00</Text>
-            </View>
-          </ScrollView>
-        </View>
-
-        {/* Compare Prices Section */}
-        <View style={styles.section}>
-          <SectionHeader title="Compare Prices" />
-          <View style={styles.compareCard}>
-            <View style={styles.compareContent}>
-              <Text style={styles.compareTitle}>Save up to 30%</Text>
-              <Text style={styles.compareDescription}>
-                Find the best deals on your favorite items
-              </Text>
-              <Text style={styles.compareSubtext}>
-                Compare prices across multiple stores
-              </Text>
-              <TouchableOpacity style={styles.compareButton} activeOpacity={0.8}>
-                <Text style={styles.compareButtonText}>Compare Now</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.compareImagePlaceholder} />
-          </View>
-        </View>
-
-        {/* Top Categories Section */}
-        <View style={styles.section}>
-          <SectionHeader title="Top Categories" />
-          <View style={styles.categoriesGrid}>
-            <View style={styles.categoryCard}>
-              <View style={styles.categoryImagePlaceholder} />
-            </View>
-            <View style={styles.categoryCard}>
-              <View style={styles.categoryImagePlaceholder} />
-            </View>
-            <View style={styles.categoryCard}>
-              <View style={styles.categoryImagePlaceholder} />
-            </View>
-            <View style={styles.categoryCard}>
-              <View style={styles.categoryImagePlaceholder} />
-            </View>
-          </View>
-        </View>
-
-        {/* Bottom spacing for safe area */}
-        <View style={styles.bottomSpacing} />
-      </ScrollView>
-    </SafeAreaView>
-  );
+      {isLoading && !feed ? <>{["Shop by category", "Featured products", "Essentials"].map((title) => <SectionSkeleton key={title} title={title} />)}</> : null}
+      {error && !feed ? <View style={styles.error}><Text style={styles.errorTitle}>Home feed is unavailable</Text><Text style={styles.errorText}>Pull to refresh or try again.</Text><Pressable onPress={refresh}><Text style={styles.retry}>Retry</Text></Pressable></View> : null}
+      {feed ? <>
+        {feed.categories.length >= 4 && <View style={styles.section}><View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Shop by category</Text><Pressable onPress={() => router.push("/(tabs)/categories")}><Text style={styles.seeAll}>See all</Text></Pressable></View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>{feed.categories.map((category) =>
+            <Pressable key={category.$id} style={styles.category} onPress={() => router.push("/(tabs)/categories")}><View style={styles.categoryIcon}><Ionicons name="grid-outline" size={25} color="#059669" /></View><Text style={styles.categoryName} numberOfLines={2}>{category.name}</Text></Pressable>)}</ScrollView></View>}
+        <HomeProductSection title="Featured products" items={feed.featured} onSeeAll={seeAll} />
+        <HomeProductSection title="Essentials" items={feed.essentials} onSeeAll={seeAll} />
+        <HomeProductSection title="Deals" items={feed.deals} onSeeAll={seeAll} />
+        <HomeProductSection title="New on Grovi" items={feed.newProducts} onSeeAll={seeAll} />
+        <HomeProductSection title={feed.popularSectionTitle} items={feed.popular} onSeeAll={seeAll} />
+        {feed.stores && <View style={styles.section}><View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Stores near you</Text></View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>{feed.stores.map((store) =>
+            <View key={store.$id} style={styles.store}><View style={styles.storeIcon}><Ionicons name="storefront" size={25} color="#059669" /></View><Text style={styles.categoryName}>{store.display_name || store.name}</Text></View>)}</ScrollView></View>}
+      </> : null}
+    </ScrollView>
+  </SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FFFFFF",
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  topHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-    paddingHorizontal: 4,
-  },
-  cartButton: {
-    position: "relative",
-    padding: 4,
-  },
-  cartBadge: {
-    position: "absolute",
-    top: -2,
-    right: -2,
-    backgroundColor: "#EF4444",
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 4,
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-  },
-  cartBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  locationContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    gap: 6,
-  },
-  deliverToText: {
-    fontSize: 14,
-    color: "#6B7280",
-    fontWeight: "500",
-  },
-  addressText: {
-    fontSize: 14,
-    color: "#111827",
-    fontWeight: "600",
-    flex: 1,
-  },
-  searchWrapper: {
-    marginBottom: 20,
-  },
-  promoBanner: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    marginBottom: 24,
-    borderWidth: 1,
-    borderColor: "#10B981",
-    overflow: "hidden",
-    minHeight: 140,
-    flexDirection: "row",
-  },
-  promoContent: {
-    flex: 1,
-    padding: 20,
-    justifyContent: "center",
-  },
-  promoTextContainer: {
-    flex: 1,
-  },
-  promoText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#111827",
-    lineHeight: 26,
-  },
-  promoHighlight: {
-    color: "#10B981",
-    fontWeight: "700",
-  },
-  promoImagePlaceholder: {
-    width: 120,
-    backgroundColor: "#F3F4F6",
-  },
-  categoryFilters: {
-    marginBottom: 24,
-  },
-  categoryFiltersContent: {
-    gap: 12,
-    paddingRight: 16,
-  },
-  categoryFilter: {
-    backgroundColor: "#10B981",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    gap: 8,
-  },
-  categoryFilterText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  section: {
-    marginBottom: 32,
-  },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-    paddingHorizontal: 4,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  seeAllButton: {
-    backgroundColor: "#10B981",
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  seeAllText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  horizontalScroll: {
-    marginHorizontal: -4,
-  },
-  horizontalScrollContent: {
-    paddingHorizontal: 4,
-    gap: 16,
-  },
-  storeCard: {
-    alignItems: "center",
-    width: 100,
-  },
-  storeImagePlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "#E5E7EB",
-    marginBottom: 8,
-  },
-  storeName: {
-    fontSize: 14,
-    color: "#111827",
-    fontWeight: "500",
-    textAlign: "center",
-  },
-  productCard: {
-    width: 140,
-  },
-  productImagePlaceholder: {
-    width: 140,
-    height: 140,
-    borderRadius: 12,
-    backgroundColor: "#E5E7EB",
-    marginBottom: 8,
-  },
-  productName: {
-    fontSize: 14,
-    color: "#111827",
-    fontWeight: "500",
-    marginBottom: 4,
-  },
-  productPrice: {
-    fontSize: 14,
-    color: "#10B981",
-    fontWeight: "600",
-  },
-  compareCard: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 16,
-    padding: 20,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 20,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  compareContent: {
-    flex: 1,
-  },
-  compareTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 8,
-  },
-  compareDescription: {
-    fontSize: 16,
-    color: "#374151",
-    marginBottom: 4,
-    lineHeight: 22,
-  },
-  compareSubtext: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginBottom: 16,
-  },
-  compareButton: {
-    backgroundColor: "#10B981",
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    alignSelf: "flex-start",
-  },
-  compareButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  compareImagePlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 12,
-    backgroundColor: "#E5E7EB",
-  },
-  categoriesGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  categoryCard: {
-    width: "47%",
-    aspectRatio: 1,
-  },
-  categoryImagePlaceholder: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 12,
-    backgroundColor: "#E5E7EB",
-  },
-  bottomSpacing: {
-    height: 20,
-  },
-  recommendedCard: {
-    backgroundColor: "#F0FDF4",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#10B981",
-  },
-  recommendedContent: {
-    gap: 8,
-  },
-  recommendedTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#111827",
-    marginTop: 4,
-  },
-  recommendedDescription: {
-    fontSize: 16,
-    color: "#374151",
-    lineHeight: 22,
-    marginTop: 4,
-  },
-  recommendedSubtext: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginTop: 4,
-  },
+  container: { flex: 1, backgroundColor: "#FFFFFF" }, content: { padding: 16, paddingBottom: 36 }, searchRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 }, search: { flex: 1 },
+  cart: { width: 46, height: 46, alignItems: "center", justifyContent: "center", borderRadius: 14, backgroundColor: "#F3F4F6" }, badge: { position: "absolute", right: 2, top: 1, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: "#EF4444", alignItems: "center", justifyContent: "center" }, badgeText: { color: "white", fontSize: 10, fontWeight: "700" },
+  location: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 13 }, deliver: { fontSize: 11, color: "#6B7280" }, address: { fontSize: 14, color: "#111827", fontWeight: "600", maxWidth: 260 },
+  banner: { minHeight: 154, backgroundColor: "#ECFDF5", borderRadius: 20, padding: 20, marginBottom: 28, flexDirection: "row", alignItems: "center", overflow: "hidden" }, bannerCopy: { flex: 1 }, bannerEyebrow: { color: "#059669", fontSize: 11, fontWeight: "800", letterSpacing: 1 }, bannerTitle: { fontSize: 21, lineHeight: 28, fontWeight: "800", color: "#111827", marginTop: 7 }, green: { color: "#059669" }, bannerText: { fontSize: 12, lineHeight: 17, color: "#4B5563", marginTop: 7 },
+  section: { marginBottom: 28 }, sectionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }, sectionTitle: { fontSize: 20, fontWeight: "700", color: "#111827" }, seeAll: { color: "#059669", fontWeight: "700" }, categoryRow: { gap: 14, paddingRight: 4 }, category: { width: 82, alignItems: "center" }, categoryIcon: { width: 64, height: 64, borderRadius: 18, backgroundColor: "#ECFDF5", alignItems: "center", justifyContent: "center" }, categoryName: { fontSize: 12, lineHeight: 16, color: "#374151", fontWeight: "600", textAlign: "center", marginTop: 7 },
+  store: { width: 96, alignItems: "center" }, storeIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: "#ECFDF5", alignItems: "center", justifyContent: "center" }, error: { padding: 24, alignItems: "center" }, errorTitle: { fontSize: 17, fontWeight: "700" }, errorText: { color: "#6B7280", marginTop: 6 }, retry: { color: "#059669", fontWeight: "700", marginTop: 12 },
 });
