@@ -1,0 +1,15 @@
+{
+  "name": "grovi-place-order-function",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "node-appwrite": "21.1.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
