@@ -1,7 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,8 +13,10 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useCart } from "../../contexts/CartContext";
 import { useCheckout } from "../../contexts/CheckoutContext";
 import { useUser } from "../../contexts/UserContext";
-import { CartItem } from "../../lib/cart-service";
+import { CartItem, getCheckoutCartSnapshot } from "../../lib/cart-service";
 import { Address, getAddresses } from "../../lib/profile-service";
+import { cancelCheckoutAttempt, CheckoutError, executeCheckout, getOrCreateCheckoutAttempt, loadCheckoutAttempt } from "../../lib/checkout-service";
+import { finishSuccessfulCheckout, SubmissionGate } from "../../lib/checkout-lifecycle";
 
 interface StoreGroup {
   storeName: string;
@@ -33,11 +34,15 @@ const formatAddress = (address: Address) =>
 export default function CheckoutReviewScreen() {
   const router = useRouter();
   const { userId, isAuthenticated } = useUser();
-  const { cart } = useCart();
+  const { cart, refreshCart, syncCart, reconcilePurchasedCart } = useCart();
   const { selectedAddressId, setSelectedAddressId } = useCheckout();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [addressError, setAddressError] = useState<string | null>(null);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submissionRef = useRef(false);
+  const submissionGate = useRef(new SubmissionGate());
 
   const loadAddresses = useCallback(async () => {
     if (!userId) {
@@ -47,7 +52,7 @@ export default function CheckoutReviewScreen() {
     }
 
     try {
-      setError(null);
+      setAddressError(null);
       const result = await getAddresses(userId);
       setAddresses(result);
       const selectionStillExists = result.some((address) => address.$id === selectedAddressId);
@@ -55,7 +60,7 @@ export default function CheckoutReviewScreen() {
         setSelectedAddressId(result.find((address) => address.default)?.$id ?? result[0]?.$id ?? null);
       }
     } catch (err: any) {
-      setError(err.message || "Failed to load delivery addresses");
+      setAddressError(err.message || "Failed to load delivery addresses");
     } finally {
       setIsLoading(false);
     }
@@ -64,8 +69,11 @@ export default function CheckoutReviewScreen() {
   useFocusEffect(
     useCallback(() => {
       setIsLoading(true);
-      loadAddresses();
-    }, [loadAddresses])
+      void loadAddresses();
+      if (userId) loadCheckoutAttempt(userId).then((attempt) => {
+        if (attempt?.state === "succeeded" && attempt.orderId) router.replace(`/order-confirmation?orderId=${encodeURIComponent(attempt.orderId)}` as Href);
+      }).catch(() => undefined);
+    }, [loadAddresses, router, userId])
   );
 
   const selectedAddress = addresses.find((address) => address.$id === selectedAddressId) ?? null;
@@ -78,11 +86,40 @@ export default function CheckoutReviewScreen() {
     return groups;
   }, {});
 
-  const handlePlaceOrder = () => {
-    Alert.alert(
-      "Checkout Preview Only",
-      "Backend checkout is not connected yet. No order has been created and your cart has not been changed."
-    );
+  const handlePlaceOrder = async () => {
+    if (!submissionGate.current.enter() || submissionRef.current || !userId || !selectedAddress || cart.items.length === 0) { submissionGate.current.leave(); return; }
+    submissionRef.current = true; setIsSubmitting(true); setSubmissionError(null);
+    try {
+      const snapshot = await getCheckoutCartSnapshot(userId);
+      if (snapshot.items.length === 0) { router.replace("/cart"); return; }
+      const attempt = await getOrCreateCheckoutAttempt(userId, selectedAddress.$id, snapshot.updatedAt);
+      const result = await executeCheckout(attempt);
+      await finishSuccessfulCheckout(
+        () => reconcilePurchasedCart(result.consumedRevision),
+        () => router.replace(`/order-confirmation?orderId=${encodeURIComponent(result.orderId)}` as Href),
+        (clearError) => console.warn("[Checkout] Order placed; cart reconciliation will retry later.", clearError)
+      );
+    } catch (caught) {
+      const failure = caught instanceof CheckoutError ? caught : new CheckoutError("UNKNOWN", "We couldn't place your order. Your cart is safe.");
+      switch (failure.code) {
+        case "UNAUTHENTICATED": setSubmissionError("Please sign in again to continue. Your checkout is saved."); router.replace("/sign-in"); break;
+        case "ADDRESS_NOT_FOUND":
+        case "ADDRESS_NOT_OWNED":
+          await cancelCheckoutAttempt(userId);
+          await loadAddresses();
+          setSubmissionError("That delivery address could not be used. Choose an address, then try again.");
+          break;
+        case "EMPTY_CART": router.replace("/cart"); break;
+        case "CART_REVISION_CONFLICT": await cancelCheckoutAttempt(userId); await refreshCart(); setSubmissionError("Your cart changed. Please review it before placing the order."); break;
+        case "PRICE_CHANGED": await cancelCheckoutAttempt(userId); await syncCart().catch(() => undefined); setSubmissionError("A price changed. Please review the updated total."); break;
+        case "PRODUCT_UNAVAILABLE": await cancelCheckoutAttempt(userId); await syncCart().catch(() => undefined); router.replace({ pathname: "/cart", params: { unavailableProductId: String(failure.details?.productId || "") } }); break;
+        case "STORE_UNAVAILABLE": await cancelCheckoutAttempt(userId); router.replace("/cart"); break;
+        case "IDEMPOTENCY_CONFLICT": setSubmissionError("We couldn't safely match this checkout attempt. Your cart was not changed. Please contact support if this continues."); break;
+        default:
+          console.error("[Checkout] Submission failed", caught);
+          setSubmissionError(failure.retryable ? "We couldn't confirm the order. Tap Retry to safely check the same attempt." : "We couldn't place your order. Your cart is safe. Please review it and try again.");
+      }
+    } finally { submissionRef.current = false; submissionGate.current.leave(); setIsSubmitting(false); }
   };
 
   if (!isAuthenticated) {
@@ -117,9 +154,9 @@ export default function CheckoutReviewScreen() {
       <Header onBack={() => router.replace("/cart")} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <SectionTitle title="Delivery address" />
-        {error ? (
+        {addressError ? (
           <View style={styles.card}>
-            <Text style={styles.errorText}>{error}</Text>
+            <Text style={styles.errorText}>{addressError}</Text>
             <TouchableOpacity onPress={loadAddresses}>
               <Text style={styles.actionText}>Retry</Text>
             </TouchableOpacity>
@@ -203,15 +240,15 @@ export default function CheckoutReviewScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
+        {submissionError && <Text style={styles.submissionError}>{submissionError}</Text>}
         <TouchableOpacity
-          style={[styles.placeOrderButton, !selectedAddress && styles.disabledButton]}
-          disabled={!selectedAddress}
+          style={[styles.placeOrderButton, (!selectedAddress || cart.items.length === 0 || isSubmitting) && styles.disabledButton]}
+          disabled={!selectedAddress || cart.items.length === 0 || isSubmitting}
           onPress={handlePlaceOrder}
           activeOpacity={0.7}
         >
-          <Text style={styles.primaryButtonText}>Place Order</Text>
+          {isSubmitting ? <View style={styles.progressRow}><ActivityIndicator color="#FFFFFF" /><Text style={styles.primaryButtonText}>Placing order…</Text></View> : <Text style={styles.primaryButtonText}>{submissionError ? "Retry" : "Place Order"}</Text>}
         </TouchableOpacity>
-        <Text style={styles.developmentText}>Development preview — no order will be created.</Text>
       </View>
     </SafeAreaView>
   );
@@ -280,6 +317,8 @@ const styles = StyleSheet.create({
   primaryButtonText: { color: "#FFFFFF", fontSize: 16, fontWeight: "600" },
   disabledButton: { backgroundColor: "#9CA3AF" },
   developmentText: { fontSize: 12, color: "#6B7280", textAlign: "center", marginTop: 8 },
+  submissionError: { color: "#DC2626", marginBottom: 10, textAlign: "center" },
+  progressRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   centerState: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 14 },
   stateTitle: { fontSize: 20, fontWeight: "600", color: "#111827" },
   stateText: { fontSize: 15, color: "#6B7280" },

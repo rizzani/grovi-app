@@ -16,8 +16,14 @@
       "enabled": true,
       "logging": true,
       "ignore": ["node_modules", ".git", "test"],
-      "scopes": ["databases.read", "databases.write"],
-      "vars": []
+      "scopes": ["documents.read", "documents.write"],
+      "vars": [
+        {
+          "$id": "grovi-database-id",
+          "key": "GROVI_DATABASE_ID",
+          "value": "grovi_staging"
+        }
+      ]
     }
   ]
 }

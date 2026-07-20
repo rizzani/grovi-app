@@ -81,6 +81,32 @@ export async function getServerCart(userId: string): Promise<Cart | null> {
   }
 }
 
+/** Return the persisted cart and its authoritative checkout revision. */
+export async function getServerCartSnapshot(userId: string): Promise<Cart | null> {
+  return getServerCart(userId);
+}
+
+/**
+ * Clear a purchased cart only when it is still the exact revision consumed by checkout.
+ * The write is awaited so callers can distinguish a successful clear from a retryable one.
+ */
+export async function clearServerCartIfRevisionMatches(
+  userId: string,
+  consumedRevision: string
+): Promise<"cleared" | "revision_changed"> {
+  const current = await getServerCart(userId);
+  if (!current || current.updatedAt !== consumedRevision) return "revision_changed";
+
+  await saveServerCart(userId, {
+    items: [],
+    totalItems: 0,
+    totalPriceJmdCents: 0,
+    storeIds: [],
+    updatedAt: new Date().toISOString(),
+  });
+  return "cleared";
+}
+
 /**
  * Save cart to server (for logged-in users)
  */

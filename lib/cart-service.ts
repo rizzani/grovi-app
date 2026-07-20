@@ -1,6 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
+  clearServerCartIfRevisionMatches,
   getCartForUser,
+  getServerCartSnapshot,
   saveCartForUser,
   migrateCartOnLogin,
 } from "./cart-persistence-service";
@@ -112,6 +114,19 @@ export async function saveCart(cart: Cart): Promise<void> {
   }
 }
 
+export async function getCheckoutCartSnapshot(userId: string): Promise<Cart> {
+  const cart = await getServerCartSnapshot(userId);
+  if (!cart) throw new Error("Your cart could not be loaded. Please return to your cart and try again.");
+  return cart;
+}
+
+export async function reconcilePurchasedCart(
+  userId: string,
+  consumedRevision: string
+): Promise<"cleared" | "revision_changed"> {
+  return clearServerCartIfRevisionMatches(userId, consumedRevision);
+}
+
 /**
  * Save cart in background (non-blocking)
  * Updates happen instantly in UI, persistence happens asynchronously
@@ -142,7 +157,7 @@ function calculateCartTotals(cart: Cart): Cart {
     totalItems,
     totalPriceJmdCents,
     storeIds,
-    updatedAt: new Date().toISOString(),
+    updatedAt: cart.updatedAt,
   };
 }
 
@@ -197,6 +212,7 @@ export async function addToCart(
     });
   }
 
+  cart.updatedAt = new Date().toISOString();
   // Calculate updated cart immediately (optimistic update)
   const updatedCart = calculateCartTotals(cart);
   
@@ -222,6 +238,7 @@ export async function removeFromCart(
     (item) => !(item.productId === productId && item.storeId === storeId)
   );
   
+  cart.updatedAt = new Date().toISOString();
   // Calculate updated cart immediately (optimistic update)
   const updatedCart = calculateCartTotals(cart);
   
@@ -254,6 +271,7 @@ export async function updateCartItemQuantity(
 
   if (item) {
     item.quantity = quantity;
+    cart.updatedAt = new Date().toISOString();
     // Calculate updated cart immediately (optimistic update)
     const updatedCart = calculateCartTotals(cart);
     

@@ -1,4 +1,4 @@
-import { Client, Account, Databases } from "appwrite";
+import { Client, Account, Databases, Functions } from "appwrite";
 import Constants from "expo-constants";
 
 // Get environment variables
@@ -32,6 +32,7 @@ const account = new Account(client);
 
 // Initialize Databases service
 const databases = new Databases(client);
+const functions = new Functions(client);
 
-export { client, account, databases, databaseId };
+export { client, account, databases, functions, databaseId };
 

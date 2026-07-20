@@ -12,6 +12,7 @@ import {
   saveCart,
   setCartAuthState,
   migrateCartOnUserLogin,
+  reconcilePurchasedCart as reconcilePurchasedCartService,
 } from "../lib/cart-service";
 import {
   validateCart,
@@ -51,6 +52,7 @@ interface CartContextType {
   removeFromCart: (productId: string, storeId: string) => Promise<void>;
   updateQuantity: (productId: string, storeId: string, quantity: number) => Promise<void>;
   clearCart: () => Promise<void>;
+  reconcilePurchasedCart: (revision: string) => Promise<"cleared" | "revision_changed">;
   isProductInCart: (productId: string, storeId: string) => boolean;
   getItemQuantity: (productId: string, storeId: string) => number;
   refreshCart: () => Promise<void>;
@@ -410,6 +412,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const reconcilePurchasedCart = async (revision: string) => {
+    if (!userId) throw new Error("Authentication is required to reconcile the cart.");
+    const result = await reconcilePurchasedCartService(userId, revision);
+    await loadCart();
+    return result;
+  };
+
   const isProductInCart = (productId: string, storeId: string): boolean => {
     return cart.items.some(
       (item) => item.productId === productId && item.storeId === storeId
@@ -526,6 +535,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         removeFromCart,
         updateQuantity,
         clearCart,
+        reconcilePurchasedCart,
         isProductInCart,
         getItemQuantity,
         refreshCart,

@@ -11,7 +11,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Href, useRouter } from "expo-router";
+import { Href, useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useCart } from "../contexts/CartContext";
 import { CartItem } from "../lib/cart-service";
@@ -254,6 +254,7 @@ function CartItemRow({ item, onQuantityChange, onRemove, validation }: CartItemR
 
 export default function CartScreen() {
   const router = useRouter();
+  const { unavailableProductId } = useLocalSearchParams<{ unavailableProductId?: string }>();
   const { isAuthenticated } = useUser();
   const {
     cart,
@@ -456,6 +457,13 @@ export default function CartScreen() {
         )}
         {cart.items.length === 0 && <View style={styles.headerPlaceholder} />}
       </View>
+
+      {unavailableProductId && (
+        <View style={styles.checkoutWarning}>
+          <Ionicons name="alert-circle" size={18} color="#B91C1C" />
+          <Text style={styles.checkoutWarningText}>An item became unavailable and was highlighted or removed. Please review your cart.</Text>
+        </View>
+      )}
 
       {cart.items.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -997,5 +1005,20 @@ const styles = StyleSheet.create({
   },
   quantityTextDisabled: {
     color: "#9CA3AF",
+  },
+  checkoutWarning: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    margin: 16,
+    marginBottom: 0,
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: "#FEE2E2",
+  },
+  checkoutWarningText: {
+    flex: 1,
+    color: "#991B1B",
+    fontSize: 13,
   },
 });
