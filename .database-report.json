@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-01-21T17:25:14.571Z",
+  "timestamp": "2026-07-20T19:17:33.503Z",
   "databaseId": "grovi_staging",
   "collections": [
     {
@@ -7,98 +7,1795 @@
       "name": "Categories",
       "documentCount": 22,
       "attributeCount": 6,
-      "indexCount": 3
+      "indexCount": 3,
+      "documentSecurity": false,
+      "permissions": [
+        "read(\"users\")",
+        "read(\"guests\")"
+      ],
+      "attributes": [
+        {
+          "key": "path_names",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "depth",
+          "type": "integer",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "name",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "parent_id",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "path_ids",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "slug",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "slug",
+          "type": "key",
+          "attributes": [
+            "slug"
+          ],
+          "orders": [],
+          "status": "available"
+        },
+        {
+          "key": "parent_id",
+          "type": "key",
+          "attributes": [
+            "parent_id"
+          ],
+          "orders": [],
+          "status": "available"
+        },
+        {
+          "key": "idx_name_fulltext",
+          "type": "fulltext",
+          "attributes": [
+            "name"
+          ],
+          "orders": [],
+          "status": "available"
+        }
+      ]
     },
     {
       "id": "products",
       "name": "Products",
       "documentCount": 1050,
-      "attributeCount": 15,
-      "indexCount": 9
+      "attributeCount": 16,
+      "indexCount": 9,
+      "documentSecurity": false,
+      "permissions": [
+        "read(\"any\")",
+        "create(\"any\")",
+        "update(\"any\")",
+        "delete(\"any\")"
+      ],
+      "attributes": [
+        {
+          "key": "variants",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "updated_at",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "category_path_ids",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "brand",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "description",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "unit_size",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "category_leaf_id",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "primary_image_file_id",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "package_quantity",
+          "type": "integer",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "category_path",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "primary_image_url",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "sku",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "images",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "net_weight",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "country_of_origin",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "external_source_external_id",
+          "type": "key",
+          "attributes": [
+            "external_id"
+          ],
+          "orders": [],
+          "status": "available"
+        },
+        {
+          "key": "category_leaf_id",
+          "type": "key",
+          "attributes": [
+            "category_leaf_id"
+          ],
+          "orders": [],
+          "status": "available"
+        },
+        {
+          "key": "sku",
+          "type": "key",
+          "attributes": [
+            "sku"
+          ],
+          "orders": [],
+          "status": "available"
+        },
+        {
+          "key": "primary_image_file_id",
+          "type": "key",
+          "attributes": [
+            "primary_image_file_id"
+          ],
+          "orders": [],
+          "status": "available"
+        },
+        {
+          "key": "idx_title_fulltext",
+          "type": "fulltext",
+          "attributes": [
+            "title"
+          ],
+          "orders": [],
+          "status": "available"
+        },
+        {
+          "key": "idx_brand_search",
+          "type": "key",
+          "attributes": [
+            "brand"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_category_leaf_id_search",
+          "type": "key",
+          "attributes": [
+            "category_leaf_id"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_external_source_in_stock",
+          "type": "key",
+          "attributes": [
+            "external_source"
+          ],
+          "orders": [],
+          "status": "available"
+        },
+        {
+          "key": "idx_sku_unique_search",
+          "type": "unique",
+          "attributes": [
+            "sku"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        }
+      ]
     },
     {
       "id": "image_sources",
       "name": "Image Sources",
       "documentCount": 4909,
       "attributeCount": 4,
-      "indexCount": 2
+      "indexCount": 2,
+      "documentSecurity": false,
+      "permissions": [
+        "read(\"any\")",
+        "create(\"any\")",
+        "update(\"any\")",
+        "delete(\"any\")"
+      ],
+      "attributes": [
+        {
+          "key": "source_url",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "fileId",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "stored_image_url",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "source_url_hash",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "source_url_hash",
+          "type": "key",
+          "attributes": [
+            "source_url_hash"
+          ],
+          "orders": [],
+          "status": "available"
+        },
+        {
+          "key": "file_id_lookup",
+          "type": "key",
+          "attributes": [
+            "fileId"
+          ],
+          "orders": [],
+          "status": "available"
+        }
+      ]
     },
     {
       "id": "sku_registry",
       "name": "SKU Registry",
       "documentCount": 1066,
       "attributeCount": 6,
-      "indexCount": 2
+      "indexCount": 2,
+      "documentSecurity": false,
+      "permissions": [
+        "read(\"any\")",
+        "create(\"any\")",
+        "update(\"any\")",
+        "delete(\"any\")"
+      ],
+      "attributes": [
+        {
+          "key": "brand",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "sku",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "manufacturer_id",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "unit_size",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "identity_key",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "identity_key",
+          "type": "key",
+          "attributes": [
+            "identity_key"
+          ],
+          "orders": [],
+          "status": "available"
+        },
+        {
+          "key": "sku_lookup",
+          "type": "key",
+          "attributes": [
+            "sku"
+          ],
+          "orders": [],
+          "status": "available"
+        }
+      ]
     },
     {
       "id": "profiles",
       "name": "Profiles",
       "documentCount": 0,
       "attributeCount": 6,
-      "indexCount": 1
+      "indexCount": 1,
+      "documentSecurity": false,
+      "permissions": [
+        "read(\"users\")",
+        "create(\"users\")",
+        "update(\"users\")",
+        "delete(\"users\")"
+      ],
+      "attributes": [
+        {
+          "key": "userId",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "name",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "phone",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "email",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "firstName",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "lastName",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "idx_userId",
+          "type": "key",
+          "attributes": [
+            "userId"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        }
+      ]
     },
     {
       "id": "audit_logs",
       "name": "Audit Logs",
       "documentCount": 0,
       "attributeCount": 4,
-      "indexCount": 3
+      "indexCount": 3,
+      "documentSecurity": false,
+      "permissions": [
+        "read(\"users\")",
+        "create(\"users\")",
+        "update(\"users\")",
+        "delete(\"users\")"
+      ],
+      "attributes": [
+        {
+          "key": "userId",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "eventType",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "metadata",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "timestamp",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "idx_userId",
+          "type": "key",
+          "attributes": [
+            "userId"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_eventType",
+          "type": "key",
+          "attributes": [
+            "eventType"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_timestamp",
+          "type": "key",
+          "attributes": [
+            "timestamp"
+          ],
+          "orders": [
+            "DESC"
+          ],
+          "status": "available"
+        }
+      ]
     },
     {
       "id": "addresses",
       "name": "Addresses",
       "documentCount": 0,
       "attributeCount": 9,
-      "indexCount": 1
+      "indexCount": 1,
+      "documentSecurity": false,
+      "permissions": [
+        "read(\"users\")",
+        "create(\"users\")",
+        "update(\"users\")",
+        "delete(\"users\")"
+      ],
+      "attributes": [
+        {
+          "key": "userId",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "label",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "parish",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "community",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "street",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "houseDetails",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "landmarkDirections",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "contactPhone",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "default",
+          "type": "boolean",
+          "required": true,
+          "status": "available"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "idx_userId",
+          "type": "key",
+          "attributes": [
+            "userId"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        }
+      ]
     },
     {
       "id": "user_preferences",
       "name": "User Preferences",
       "documentCount": 0,
       "attributeCount": 3,
-      "indexCount": 1
+      "indexCount": 1,
+      "documentSecurity": false,
+      "permissions": [
+        "read(\"users\")",
+        "create(\"users\")",
+        "update(\"users\")",
+        "delete(\"users\")"
+      ],
+      "attributes": [
+        {
+          "key": "userId",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "dietaryPreferences",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "categoryPreferences",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "idx_userId",
+          "type": "key",
+          "attributes": [
+            "userId"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        }
+      ]
     },
     {
       "id": "notification_preferences",
       "name": "Notification Preferences",
       "documentCount": 0,
       "attributeCount": 7,
-      "indexCount": 1
+      "indexCount": 1,
+      "documentSecurity": false,
+      "permissions": [
+        "read(\"users\")",
+        "create(\"users\")",
+        "update(\"users\")",
+        "delete(\"users\")"
+      ],
+      "attributes": [
+        {
+          "key": "userId",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "pushToken",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "orderUpdatesEnabled",
+          "type": "boolean",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "promotionsEnabled",
+          "type": "boolean",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "pushEnabled",
+          "type": "boolean",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "emailEnabled",
+          "type": "boolean",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "smsEnabled",
+          "type": "boolean",
+          "required": true,
+          "status": "available"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "idx_userId",
+          "type": "key",
+          "attributes": [
+            "userId"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        }
+      ]
     },
     {
       "id": "payment_methods",
       "name": "Payment Methods",
       "documentCount": 0,
       "attributeCount": 6,
-      "indexCount": 1
+      "indexCount": 1,
+      "documentSecurity": false,
+      "permissions": [
+        "read(\"users\")",
+        "create(\"users\")",
+        "update(\"users\")",
+        "delete(\"users\")"
+      ],
+      "attributes": [
+        {
+          "key": "userId",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "type",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "brand",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "last4",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "maskedNumber",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "label",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "idx_userId",
+          "type": "key",
+          "attributes": [
+            "userId"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        }
+      ]
     },
     {
       "id": "store_brand",
       "name": "Store Brands",
       "documentCount": 0,
       "attributeCount": 7,
-      "indexCount": 1
+      "indexCount": 1,
+      "documentSecurity": false,
+      "permissions": [
+        "create(\"users\")",
+        "read(\"users\")",
+        "update(\"users\")",
+        "delete(\"users\")"
+      ],
+      "attributes": [
+        {
+          "key": "name",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "slug",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "website_url",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "logo_url",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "currency",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "country_code",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "is_active",
+          "type": "boolean",
+          "required": true,
+          "status": "available"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "idx_brand_slug_unique",
+          "type": "key",
+          "attributes": [
+            "slug"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        }
+      ]
     },
     {
       "id": "store_location",
       "name": "Store Locations",
       "documentCount": 0,
       "attributeCount": 10,
-      "indexCount": 1
+      "indexCount": 1,
+      "documentSecurity": false,
+      "permissions": [
+        "create(\"users\")",
+        "read(\"users\")",
+        "update(\"users\")",
+        "delete(\"users\")"
+      ],
+      "attributes": [
+        {
+          "key": "brand_id",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "name",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "display_name",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "slug",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "parish",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "address_line1",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "address_line2",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "phone",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "is_active",
+          "type": "boolean",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "priority",
+          "type": "integer",
+          "required": false,
+          "status": "available"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "idx_is_active",
+          "type": "key",
+          "attributes": [
+            "is_active"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        }
+      ]
     },
     {
       "id": "store_location_product",
       "name": "Store Location Product",
-      "documentCount": 1050,
+      "documentCount": 0,
       "attributeCount": 14,
-      "indexCount": 7
+      "indexCount": 7,
+      "documentSecurity": false,
+      "permissions": [
+        "read(\"users\")",
+        "create(\"users\")",
+        "update(\"users\")",
+        "delete(\"users\")"
+      ],
+      "attributes": [
+        {
+          "key": "product_id",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "store_location_id",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "brand_id",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "source_key",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "external_id",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "external_url",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "price_currency",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "category_leaf_id",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "category_path_ids",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "price_jmd_cents",
+          "type": "integer",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "in_stock",
+          "type": "boolean",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "first_seen_at",
+          "type": "datetime",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "last_seen_at",
+          "type": "datetime",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "content_hash",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "idx_product_location",
+          "type": "key",
+          "attributes": [
+            "product_id",
+            "store_location_id"
+          ],
+          "orders": [
+            "ASC",
+            "ASC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_store_location",
+          "type": "key",
+          "attributes": [
+            "store_location_id"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_brand",
+          "type": "key",
+          "attributes": [
+            "brand_id"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_in_stock",
+          "type": "key",
+          "attributes": [
+            "in_stock"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_store_stock",
+          "type": "key",
+          "attributes": [
+            "store_location_id",
+            "in_stock"
+          ],
+          "orders": [
+            "ASC",
+            "ASC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_category_leaf",
+          "type": "key",
+          "attributes": [
+            "category_leaf_id"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_price",
+          "type": "key",
+          "attributes": [
+            "price_jmd_cents"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        }
+      ]
     },
     {
       "id": "search_analytics",
       "name": "Search Analytics",
       "documentCount": 0,
       "attributeCount": 5,
-      "indexCount": 3
+      "indexCount": 3,
+      "documentSecurity": false,
+      "permissions": [
+        "read(\"users\")",
+        "create(\"users\")",
+        "update(\"users\")",
+        "delete(\"users\")"
+      ],
+      "attributes": [
+        {
+          "key": "userId",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "query",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "timestamp",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "resultCount",
+          "type": "integer",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "isNoResult",
+          "type": "boolean",
+          "required": true,
+          "status": "available"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "idx_userId",
+          "type": "key",
+          "attributes": [
+            "userId"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_timestamp",
+          "type": "key",
+          "attributes": [
+            "timestamp"
+          ],
+          "orders": [
+            "DESC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_isNoResult",
+          "type": "key",
+          "attributes": [
+            "isNoResult"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        }
+      ]
+    },
+    {
+      "id": "carts",
+      "name": "Shopping Carts",
+      "documentCount": 0,
+      "attributeCount": 6,
+      "indexCount": 1,
+      "documentSecurity": false,
+      "permissions": [
+        "read(\"users\")",
+        "create(\"users\")",
+        "update(\"users\")",
+        "delete(\"users\")"
+      ],
+      "attributes": [
+        {
+          "key": "userId",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "updatedAt",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "totalItems",
+          "type": "integer",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "totalPriceJmdCents",
+          "type": "integer",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "items",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "storeIds",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "idx_userId",
+          "type": "key",
+          "attributes": [
+            "userId"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        }
+      ]
+    },
+    {
+      "id": "orders",
+      "name": "Orders",
+      "documentCount": 0,
+      "attributeCount": 25,
+      "indexCount": 5,
+      "documentSecurity": true,
+      "permissions": [],
+      "attributes": [
+        {
+          "key": "userId",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "orderNumber",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "idempotencyKey",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "requestFingerprint",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "status",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "statusReason",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "paymentMethod",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "paymentStatus",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "currency",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "addressId",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "addressLabel",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "deliveryParish",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "deliveryCommunity",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "deliveryStreet",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "deliveryHouseDetails",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "deliveryLandmarkDirections",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "deliveryContactPhone",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "itemCount",
+          "type": "integer",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "storeCount",
+          "type": "integer",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "subtotalJmdCents",
+          "type": "integer",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "deliveryFeeJmdCents",
+          "type": "integer",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "discountJmdCents",
+          "type": "integer",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "totalJmdCents",
+          "type": "integer",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "schemaVersion",
+          "type": "integer",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "cartUpdatedAt",
+          "type": "datetime",
+          "required": false,
+          "status": "available"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "idx_idempotencyKey",
+          "type": "unique",
+          "attributes": [
+            "idempotencyKey"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_orderNumber",
+          "type": "unique",
+          "attributes": [
+            "orderNumber"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_userId",
+          "type": "key",
+          "attributes": [
+            "userId"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_user_placed",
+          "type": "key",
+          "attributes": [
+            "userId",
+            "placedAt"
+          ],
+          "orders": [
+            "ASC",
+            "DESC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_status",
+          "type": "key",
+          "attributes": [
+            "status"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        }
+      ]
+    },
+    {
+      "id": "store_orders",
+      "name": "Store Orders",
+      "documentCount": 0,
+      "attributeCount": 16,
+      "indexCount": 3,
+      "documentSecurity": true,
+      "permissions": [],
+      "attributes": [
+        {
+          "key": "orderId",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "userId",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "storeLocationId",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "storeName",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "storeBrandId",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "status",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "statusReason",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "itemCount",
+          "type": "integer",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "subtotalJmdCents",
+          "type": "integer",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "deliveryFeeJmdCents",
+          "type": "integer",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "discountJmdCents",
+          "type": "integer",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "totalJmdCents",
+          "type": "integer",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "acceptedAt",
+          "type": "datetime",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "dispatchedAt",
+          "type": "datetime",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "deliveredAt",
+          "type": "datetime",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "cancelledAt",
+          "type": "datetime",
+          "required": false,
+          "status": "available"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "idx_orderId",
+          "type": "key",
+          "attributes": [
+            "orderId"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_storeLocationId",
+          "type": "key",
+          "attributes": [
+            "storeLocationId"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_store_status",
+          "type": "key",
+          "attributes": [
+            "storeLocationId",
+            "status"
+          ],
+          "orders": [
+            "ASC",
+            "ASC"
+          ],
+          "status": "available"
+        }
+      ]
+    },
+    {
+      "id": "order_items",
+      "name": "Order Items",
+      "documentCount": 0,
+      "attributeCount": 13,
+      "indexCount": 3,
+      "documentSecurity": true,
+      "permissions": [],
+      "attributes": [
+        {
+          "key": "orderId",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "storeOrderId",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "userId",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "productId",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "storeLocationId",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "sku",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "brand",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "imageUrl",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "unitSize",
+          "type": "string",
+          "required": false,
+          "status": "available"
+        },
+        {
+          "key": "quantity",
+          "type": "integer",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "unitPriceJmdCents",
+          "type": "integer",
+          "required": true,
+          "status": "available"
+        },
+        {
+          "key": "lineTotalJmdCents",
+          "type": "integer",
+          "required": true,
+          "status": "available"
+        }
+      ],
+      "indexes": [
+        {
+          "key": "idx_orderId",
+          "type": "key",
+          "attributes": [
+            "orderId"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_storeOrderId",
+          "type": "key",
+          "attributes": [
+            "storeOrderId"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        },
+        {
+          "key": "idx_productId",
+          "type": "key",
+          "attributes": [
+            "productId"
+          ],
+          "orders": [
+            "ASC"
+          ],
+          "status": "available"
+        }
+      ]
     }
   ]
 }

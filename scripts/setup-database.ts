@@ -103,6 +103,205 @@ async function appwriteRequest(
 const client = new Client().setEndpoint(endpoint).setProject(projectId);
 const databases = new Databases(client);
 
+type SchemaAttribute =
+  | { key: string; type: "string"; size: number; required: boolean }
+  | { key: string; type: "integer"; required: boolean; min?: number }
+  | { key: string; type: "datetime"; required: boolean }
+  | { key: string; type: "enum"; required: boolean; elements: string[] };
+
+type SchemaIndex = {
+  key: string;
+  type: "key" | "unique";
+  attributes: string[];
+  orders: ("ASC" | "DESC")[];
+};
+
+type CollectionSchema = {
+  id: string;
+  name: string;
+  attributes: SchemaAttribute[];
+  indexes: SchemaIndex[];
+};
+
+const orderCollectionSchemas: CollectionSchema[] = [
+  {
+    id: "orders",
+    name: "Orders",
+    attributes: [
+      { key: "userId", type: "string", size: 36, required: true },
+      { key: "orderNumber", type: "string", size: 36, required: true },
+      { key: "idempotencyKey", type: "string", size: 255, required: true },
+      { key: "requestFingerprint", type: "string", size: 128, required: true },
+      { key: "status", type: "string", size: 30, required: true },
+      { key: "statusReason", type: "string", size: 500, required: false },
+      { key: "paymentMethod", type: "string", size: 50, required: true },
+      { key: "paymentStatus", type: "string", size: 30, required: true },
+      { key: "currency", type: "string", size: 3, required: true },
+      { key: "addressId", type: "string", size: 36, required: true },
+      { key: "addressLabel", type: "string", size: 30, required: true },
+      { key: "deliveryParish", type: "string", size: 100, required: true },
+      { key: "deliveryCommunity", type: "string", size: 60, required: true },
+      { key: "deliveryStreet", type: "string", size: 60, required: false },
+      { key: "deliveryHouseDetails", type: "string", size: 30, required: false },
+      { key: "deliveryLandmarkDirections", type: "string", size: 240, required: true },
+      { key: "deliveryContactPhone", type: "string", size: 20, required: true },
+      { key: "itemCount", type: "integer", required: true, min: 1 },
+      { key: "storeCount", type: "integer", required: true, min: 1 },
+      { key: "subtotalJmdCents", type: "integer", required: true, min: 0 },
+      { key: "deliveryFeeJmdCents", type: "integer", required: true, min: 0 },
+      { key: "discountJmdCents", type: "integer", required: true, min: 0 },
+      { key: "totalJmdCents", type: "integer", required: true, min: 0 },
+      { key: "schemaVersion", type: "integer", required: true, min: 1 },
+      { key: "cartUpdatedAt", type: "datetime", required: false },
+      { key: "placedAt", type: "datetime", required: true },
+      { key: "confirmedAt", type: "datetime", required: false },
+      { key: "deliveredAt", type: "datetime", required: false },
+      { key: "cancelledAt", type: "datetime", required: false },
+    ],
+    indexes: [
+      { key: "idx_idempotencyKey", type: "unique", attributes: ["idempotencyKey"], orders: ["ASC"] },
+      { key: "idx_orderNumber", type: "unique", attributes: ["orderNumber"], orders: ["ASC"] },
+      { key: "idx_userId", type: "key", attributes: ["userId"], orders: ["ASC"] },
+      { key: "idx_user_placed", type: "key", attributes: ["userId", "placedAt"], orders: ["ASC", "DESC"] },
+      { key: "idx_status", type: "key", attributes: ["status"], orders: ["ASC"] },
+    ],
+  },
+  {
+    id: "store_orders",
+    name: "Store Orders",
+    attributes: [
+      { key: "orderId", type: "string", size: 36, required: true },
+      { key: "userId", type: "string", size: 36, required: true },
+      { key: "storeLocationId", type: "string", size: 255, required: true },
+      { key: "storeName", type: "string", size: 255, required: true },
+      { key: "storeBrandId", type: "string", size: 255, required: false },
+      { key: "status", type: "string", size: 30, required: true },
+      { key: "statusReason", type: "string", size: 500, required: false },
+      { key: "itemCount", type: "integer", required: true, min: 1 },
+      { key: "subtotalJmdCents", type: "integer", required: true, min: 0 },
+      { key: "deliveryFeeJmdCents", type: "integer", required: true, min: 0 },
+      { key: "discountJmdCents", type: "integer", required: true, min: 0 },
+      { key: "totalJmdCents", type: "integer", required: true, min: 0 },
+      { key: "acceptedAt", type: "datetime", required: false },
+      { key: "dispatchedAt", type: "datetime", required: false },
+      { key: "deliveredAt", type: "datetime", required: false },
+      { key: "cancelledAt", type: "datetime", required: false },
+    ],
+    indexes: [
+      { key: "idx_orderId", type: "key", attributes: ["orderId"], orders: ["ASC"] },
+      { key: "idx_storeLocationId", type: "key", attributes: ["storeLocationId"], orders: ["ASC"] },
+      { key: "idx_store_status", type: "key", attributes: ["storeLocationId", "status"], orders: ["ASC", "ASC"] },
+    ],
+  },
+  {
+    id: "order_items",
+    name: "Order Items",
+    attributes: [
+      { key: "orderId", type: "string", size: 36, required: true },
+      { key: "storeOrderId", type: "string", size: 36, required: true },
+      { key: "userId", type: "string", size: 36, required: true },
+      { key: "productId", type: "string", size: 255, required: true },
+      { key: "storeLocationId", type: "string", size: 255, required: true },
+      { key: "sku", type: "string", size: 255, required: true },
+      { key: "title", type: "string", size: 255, required: true },
+      { key: "brand", type: "string", size: 255, required: false },
+      { key: "imageUrl", type: "string", size: 2048, required: false },
+      { key: "unitSize", type: "string", size: 100, required: false },
+      { key: "quantity", type: "integer", required: true, min: 1 },
+      { key: "unitPriceJmdCents", type: "integer", required: true, min: 0 },
+      { key: "lineTotalJmdCents", type: "integer", required: true, min: 0 },
+    ],
+    indexes: [
+      { key: "idx_orderId", type: "key", attributes: ["orderId"], orders: ["ASC"] },
+      { key: "idx_storeOrderId", type: "key", attributes: ["storeOrderId"], orders: ["ASC"] },
+      { key: "idx_productId", type: "key", attributes: ["productId"], orders: ["ASC"] },
+    ],
+  },
+];
+
+function arraysEqual(left: unknown[] = [], right: unknown[] = []) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+async function waitForSchemaResource(pathname: string, label: string): Promise<any> {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    const resource = await appwriteRequest("GET", pathname);
+    if (!resource.status || resource.status === "available") return resource;
+    if (resource.status === "failed") throw new Error(`${label} creation failed: ${resource.error || "unknown error"}`);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  throw new Error(`Timed out waiting for ${label}`);
+}
+
+function verifyAttribute(existing: any, expected: SchemaAttribute, collectionId: string) {
+  const errors: string[] = [];
+  if (existing.type !== expected.type) errors.push(`type ${existing.type} != ${expected.type}`);
+  if (Boolean(existing.required) !== expected.required) errors.push(`required ${existing.required} != ${expected.required}`);
+  if (expected.type === "string" && existing.size !== expected.size) errors.push(`size ${existing.size} != ${expected.size}`);
+  if (expected.type === "integer" && expected.min !== undefined && existing.min !== expected.min) errors.push(`min ${existing.min} != ${expected.min}`);
+  if (expected.type === "enum" && !arraysEqual(existing.elements, expected.elements)) errors.push("enum elements differ");
+  if (errors.length) throw new Error(`Cannot non-destructively reconcile ${collectionId}.${expected.key}: ${errors.join(", ")}`);
+}
+
+async function ensureSchemaAttribute(collectionId: string, attribute: SchemaAttribute) {
+  const base = `/databases/${databaseId}/collections/${collectionId}/attributes`;
+  try {
+    const existing = await appwriteRequest("GET", `${base}/${attribute.key}`);
+    verifyAttribute(existing, attribute, collectionId);
+    await waitForSchemaResource(`${base}/${attribute.key}`, `${collectionId}.${attribute.key}`);
+    console.log(`  - Attribute '${attribute.key}' already exists and matches`);
+    return;
+  } catch (error: any) {
+    if (error.code !== 404) throw error;
+  }
+  const { type, ...body } = attribute;
+  await appwriteRequest("POST", `${base}/${type}`, body);
+  await waitForSchemaResource(`${base}/${attribute.key}`, `${collectionId}.${attribute.key}`);
+  console.log(`  ✓ Created attribute '${attribute.key}' (${type})`);
+}
+
+async function ensureSchemaIndex(collectionId: string, index: SchemaIndex) {
+  const base = `/databases/${databaseId}/collections/${collectionId}/indexes`;
+  try {
+    const existing = await appwriteRequest("GET", `${base}/${index.key}`);
+    if (existing.type !== index.type || !arraysEqual(existing.attributes, index.attributes) || !arraysEqual(existing.orders, index.orders)) {
+      throw new Error(`Cannot non-destructively reconcile index ${collectionId}.${index.key}`);
+    }
+    await waitForSchemaResource(`${base}/${index.key}`, `${collectionId}.${index.key}`);
+    console.log(`  - Index '${index.key}' already exists and matches`);
+    return;
+  } catch (error: any) {
+    if (error.code !== 404) throw error;
+  }
+  await appwriteRequest("POST", base, index);
+  await waitForSchemaResource(`${base}/${index.key}`, `${collectionId}.${index.key}`);
+  console.log(`  ✓ Created index '${index.key}'`);
+}
+
+async function ensureOrderCollections() {
+  console.log("\n📦 Configuring order collections...");
+  for (const schema of orderCollectionSchemas) {
+    const path = `/databases/${databaseId}/collections/${schema.id}`;
+    try {
+      await appwriteRequest("GET", path);
+      console.log(`✓ Collection '${schema.id}' already exists`);
+    } catch (error: any) {
+      if (error.code !== 404) throw error;
+      await appwriteRequest("POST", `/databases/${databaseId}/collections`, {
+        collectionId: schema.id,
+        name: schema.name,
+        permissions: [],
+        documentSecurity: true,
+        enabled: true,
+      });
+      console.log(`✓ Created collection '${schema.id}'`);
+    }
+    await appwriteRequest("PUT", path, { name: schema.name, permissions: [], documentSecurity: true, enabled: true });
+    for (const attribute of schema.attributes) await ensureSchemaAttribute(schema.id, attribute);
+    for (const index of schema.indexes) await ensureSchemaIndex(schema.id, index);
+  }
+}
+
 async function setupDatabase() {
   try {
     console.log("🚀 Starting database setup...\n");
@@ -1714,9 +1913,13 @@ async function setupDatabase() {
       console.error(`  ✗ Failed to update permissions: ${error.message}`);
     }
 
+    // These collections intentionally have no collection-level grants. The
+    // Checkout Function must grant read(Role.user(userId)) on each document.
+    await ensureOrderCollections();
+
     console.log("\n✅ Database setup completed successfully!");
     console.log(`\nDatabase ID: ${databaseId}`);
-    console.log(`Collections: ${profilesCollectionId}, ${addressesCollectionId}, ${auditLogsCollectionId}, ${userPreferencesCollectionId}, ${notificationPreferencesCollectionId}, ${storeLocationProductCollectionId}, ${searchAnalyticsCollectionId}, ${cartsCollectionId}`);
+    console.log(`Collections: ${profilesCollectionId}, ${addressesCollectionId}, ${auditLogsCollectionId}, ${userPreferencesCollectionId}, ${notificationPreferencesCollectionId}, ${storeLocationProductCollectionId}, ${searchAnalyticsCollectionId}, ${cartsCollectionId}, orders, store_orders, order_items`);
     console.log("\nNote: Make sure to set APPWRITE_DATABASE_ID in your app configuration.");
   } catch (error: any) {
     console.error("\n❌ Database setup failed:", error.message);

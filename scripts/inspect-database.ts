@@ -109,6 +109,7 @@ interface CollectionInfo {
   attributes: any[];
   indexes: any[];
   permissions: any[];
+  documentSecurity: boolean;
   documentCount?: number;
   sampleDocuments?: any[];
   performanceMetrics?: {
@@ -455,7 +456,11 @@ async function inspectDatabase() {
         attributes: [],
         indexes: [],
         permissions: collection.$permissions || [],
+        documentSecurity: Boolean(collection.documentSecurity),
       };
+
+      report.log(`Document security: ${info.documentSecurity ? "enabled" : "disabled"}`);
+      report.log(`Collection permissions: ${info.permissions.length ? info.permissions.join(", ") : "(none)"}`);
 
       info.performanceMetrics = {
         attributesFetchTime: 0,
@@ -596,6 +601,9 @@ async function inspectDatabase() {
       "categories",
       "store_locations",
       "store_location_product",
+      "orders",
+      "store_orders",
+      "order_items",
     ];
 
     const collectionMap = new Map(
@@ -693,6 +701,46 @@ async function inspectDatabase() {
               `  - Has '${idxKey}' index: ${hasIdx ? "✓" : "✗ (recommended)"}`
             );
           });
+        }
+
+        const orderRequirements: Record<string, { attributes: string[]; indexes: string[] }> = {
+          orders: {
+            attributes: [
+              "userId", "orderNumber", "idempotencyKey", "requestFingerprint", "status",
+              "paymentMethod", "paymentStatus", "currency", "addressId", "itemCount",
+              "storeCount", "subtotalJmdCents", "deliveryFeeJmdCents", "discountJmdCents",
+              "totalJmdCents", "schemaVersion", "placedAt",
+            ],
+            indexes: ["idx_idempotencyKey", "idx_orderNumber", "idx_userId", "idx_user_placed", "idx_status"],
+          },
+          store_orders: {
+            attributes: [
+              "orderId", "userId", "storeLocationId", "storeName", "status", "itemCount",
+              "subtotalJmdCents", "deliveryFeeJmdCents", "discountJmdCents", "totalJmdCents",
+            ],
+            indexes: ["idx_orderId", "idx_storeLocationId", "idx_store_status"],
+          },
+          order_items: {
+            attributes: [
+              "orderId", "storeOrderId", "userId", "productId", "storeLocationId", "sku",
+              "title", "quantity", "unitPriceJmdCents", "lineTotalJmdCents",
+            ],
+            indexes: ["idx_orderId", "idx_storeOrderId", "idx_productId"],
+          },
+        };
+
+        const orderRequirement = orderRequirements[collectionId];
+        if (orderRequirement) {
+          const missingAttributes = orderRequirement.attributes.filter(
+            (key) => !info.attributes.some((attribute: any) => attribute.key === key && attribute.status === "available")
+          );
+          const missingIndexes = orderRequirement.indexes.filter(
+            (key) => !info.indexes.some((index: any) => index.key === key && index.status === "available")
+          );
+          report.log(`  - Document security enabled: ${info.documentSecurity ? "✓" : "✗"}`);
+          report.log(`  - No collection-level permissions: ${info.permissions.length === 0 ? "✓" : "✗"}`);
+          report.log(`  - Required attributes available: ${missingAttributes.length === 0 ? "✓" : `✗ missing ${missingAttributes.join(", ")}`}`);
+          report.log(`  - Required indexes available: ${missingIndexes.length === 0 ? "✓" : `✗ missing ${missingIndexes.join(", ")}`}`);
         }
         report.log("");
       } else {
@@ -865,6 +913,21 @@ async function inspectDatabase() {
         documentCount: info.documentCount || 0,
         attributeCount: info.attributes.length,
         indexCount: info.indexes.length,
+        documentSecurity: info.documentSecurity,
+        permissions: info.permissions,
+        attributes: info.attributes.map((attribute: any) => ({
+          key: attribute.key,
+          type: attribute.type,
+          required: attribute.required,
+          status: attribute.status,
+        })),
+        indexes: info.indexes.map((index: any) => ({
+          key: index.key,
+          type: index.type,
+          attributes: index.attributes,
+          orders: index.orders,
+          status: index.status,
+        })),
       })),
     };
 
