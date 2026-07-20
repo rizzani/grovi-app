@@ -11,11 +11,12 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { Href, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useCart } from "../contexts/CartContext";
 import { CartItem } from "../lib/cart-service";
 import Constants from "expo-constants";
+import { useUser } from "../contexts/UserContext";
 
 /**
  * Transform Appwrite image URL for cart display
@@ -253,6 +254,7 @@ function CartItemRow({ item, onQuantityChange, onRemove, validation }: CartItemR
 
 export default function CartScreen() {
   const router = useRouter();
+  const { isAuthenticated } = useUser();
   const {
     cart,
     updateQuantity,
@@ -307,6 +309,18 @@ export default function CartScreen() {
   };
 
   const handleCheckout = async () => {
+    if (!isAuthenticated) {
+      Alert.alert(
+        "Sign in to Checkout",
+        "Please sign in before choosing a delivery address and reviewing your checkout.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Sign In", onPress: () => router.push("/sign-in") },
+        ]
+      );
+      return;
+    }
+
     // Validate before checkout
     const validation = await validateCart();
     
@@ -338,25 +352,14 @@ export default function CartScreen() {
           {
             text: "Continue Anyway",
             style: "default",
-            onPress: () => {
-              Alert.alert(
-                "Checkout",
-                "Checkout functionality will be available soon.",
-                [{ text: "OK" }]
-              );
-            },
+            onPress: () => router.push("/checkout/review" as Href),
           },
         ]
       );
       return;
     }
 
-    // Proceed with checkout
-    Alert.alert(
-      "Checkout",
-      "Checkout functionality will be available soon.",
-      [{ text: "OK" }]
-    );
+    router.push("/checkout/review" as Href);
   };
 
   const handleClearCart = () => {
