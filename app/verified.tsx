@@ -16,7 +16,7 @@ export default function VerifiedScreen() {
       <View style={styles.content}>
         {/* Header Text */}
         <View style={styles.header}>
-          <Text style={styles.title}>You're verified</Text>
+          <Text style={styles.title}>You&apos;re verified</Text>
           <Text style={styles.subtitle}>
             Your Grovi account is ready! Time to start shopping.
           </Text>

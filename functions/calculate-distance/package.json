@@ -1,0 +1,6 @@
+{
+  "name": "grovi-calculate-distance",
+  "private": true,
+  "type": "module",
+  "dependencies": { "node-appwrite": "^21.1.0" }
+}

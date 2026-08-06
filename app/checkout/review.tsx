@@ -17,6 +17,7 @@ import { CartItem, getCheckoutCartSnapshot } from "../../lib/cart-service";
 import { Address, getAddresses } from "../../lib/profile-service";
 import { cancelCheckoutAttempt, CheckoutError, executeCheckout, getOrCreateCheckoutAttempt, loadCheckoutAttempt } from "../../lib/checkout-service";
 import { finishSuccessfulCheckout, SubmissionGate } from "../../lib/checkout-lifecycle";
+import { isValidCoordinates } from "../../lib/location-utils";
 
 interface StoreGroup {
   storeName: string;
@@ -77,6 +78,7 @@ export default function CheckoutReviewScreen() {
   );
 
   const selectedAddress = addresses.find((address) => address.$id === selectedAddressId) ?? null;
+  const hasValidLocation = Boolean(selectedAddress && isValidCoordinates({ latitude: selectedAddress.latitude ?? NaN, longitude: selectedAddress.longitude ?? NaN }));
   const itemsByStore = cart.items.reduce<Record<string, StoreGroup>>((groups, item) => {
     if (!groups[item.storeId]) {
       groups[item.storeId] = { storeName: item.storeName, items: [], subtotal: 0 };
@@ -87,7 +89,7 @@ export default function CheckoutReviewScreen() {
   }, {});
 
   const handlePlaceOrder = async () => {
-    if (!submissionGate.current.enter() || submissionRef.current || !userId || !selectedAddress || cart.items.length === 0) { submissionGate.current.leave(); return; }
+    if (!submissionGate.current.enter() || submissionRef.current || !userId || !selectedAddress || !hasValidLocation || cart.items.length === 0) { submissionGate.current.leave(); return; }
     submissionRef.current = true; setIsSubmitting(true); setSubmissionError(null);
     try {
       const snapshot = await getCheckoutCartSnapshot(userId);
@@ -108,6 +110,9 @@ export default function CheckoutReviewScreen() {
           await cancelCheckoutAttempt(userId);
           await loadAddresses();
           setSubmissionError("That delivery address could not be used. Choose an address, then try again.");
+          break;
+        case "INVALID_DELIVERY_LOCATION":
+          setSubmissionError("Choose a valid delivery location before placing the order.");
           break;
         case "EMPTY_CART": router.replace("/cart"); break;
         case "CART_REVISION_CONFLICT": await cancelCheckoutAttempt(userId); await refreshCart(); setSubmissionError("Your cart changed. Please review it before placing the order."); break;
@@ -169,10 +174,10 @@ export default function CheckoutReviewScreen() {
                   <Text style={styles.cardTitle}>{selectedAddress.label}</Text>
                   {selectedAddress.default && <Text style={styles.defaultBadge}>Default</Text>}
                 </View>
-                <Text style={styles.secondaryText}>{formatAddress(selectedAddress)}</Text>
-                <Text style={styles.secondaryText} numberOfLines={2}>
+                <Text style={styles.secondaryText}>{selectedAddress.formattedAddress || formatAddress(selectedAddress)}</Text>
+                {selectedAddress.landmarkDirections && <Text style={styles.secondaryText} numberOfLines={2}>
                   {selectedAddress.landmarkDirections}
-                </Text>
+                </Text>}
               </View>
               <TouchableOpacity onPress={() => router.push("/checkout/address" as Href)}>
                 <Text style={styles.actionText}>Change</Text>
@@ -189,6 +194,7 @@ export default function CheckoutReviewScreen() {
             </TouchableOpacity>
           </View>
         )}
+        {selectedAddress && !hasValidLocation && <Text style={styles.errorText}>Please select a valid map location before placing your order.</Text>}
 
         <SectionTitle title="Items by store" />
         {Object.entries(itemsByStore).map(([storeId, group]) => (
@@ -242,8 +248,8 @@ export default function CheckoutReviewScreen() {
       <View style={styles.footer}>
         {submissionError && <Text style={styles.submissionError}>{submissionError}</Text>}
         <TouchableOpacity
-          style={[styles.placeOrderButton, (!selectedAddress || cart.items.length === 0 || isSubmitting) && styles.disabledButton]}
-          disabled={!selectedAddress || cart.items.length === 0 || isSubmitting}
+          style={[styles.placeOrderButton, (!selectedAddress || !hasValidLocation || cart.items.length === 0 || isSubmitting) && styles.disabledButton]}
+          disabled={!selectedAddress || !hasValidLocation || cart.items.length === 0 || isSubmitting}
           onPress={handlePlaceOrder}
           activeOpacity={0.7}
         >

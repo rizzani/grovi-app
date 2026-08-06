@@ -29,9 +29,14 @@ export interface Address {
   community: string;
   street?: string;
   houseDetails?: string;
-  landmarkDirections: string;
+  landmarkDirections?: string;
   contactPhone?: string;
   default: boolean;
+  deliveryAddress?: string;
+  latitude?: number;
+  longitude?: number;
+  formattedAddress?: string;
+  locationUpdatedAt?: string;
   createdAt: string;
 }
 
@@ -51,9 +56,14 @@ export interface CreateAddressParams {
   community: string;
   street?: string;
   houseDetails?: string;
-  landmarkDirections: string;
+  landmarkDirections?: string;
   contactPhone?: string;
   isDefault: boolean;
+  deliveryAddress?: string;
+  latitude: number;
+  longitude: number;
+  formattedAddress: string;
+  locationUpdatedAt?: string;
 }
 
 export interface UpdateAddressParams {
@@ -66,6 +76,11 @@ export interface UpdateAddressParams {
   landmarkDirections?: string;
   contactPhone?: string;
   isDefault?: boolean;
+  deliveryAddress?: string;
+  latitude?: number;
+  longitude?: number;
+  formattedAddress?: string;
+  locationUpdatedAt?: string;
 }
 
 /**
@@ -246,7 +261,12 @@ export async function createAddress(
       houseDetails,
       landmarkDirections,
       contactPhone,
-      isDefault 
+      isDefault,
+      deliveryAddress,
+      latitude,
+      longitude,
+      formattedAddress,
+      locationUpdatedAt,
     } = params;
 
     // Check if this is the first address - if so, automatically set as default
@@ -280,6 +300,11 @@ export async function createAddress(
         landmarkDirections,
         contactPhone: contactPhone || null,
         default: finalIsDefault,
+        deliveryAddress: deliveryAddress || formattedAddress,
+        latitude,
+        longitude,
+        formattedAddress,
+        locationUpdatedAt: locationUpdatedAt || new Date().toISOString(),
       },
       [
         Permission.read(Role.user(userId)),
@@ -360,7 +385,12 @@ export async function updateAddress(
       houseDetails,
       landmarkDirections,
       contactPhone,
-      isDefault 
+      isDefault,
+      deliveryAddress,
+      latitude,
+      longitude,
+      formattedAddress,
+      locationUpdatedAt,
     } = params;
 
     // Get current address to check userId
@@ -384,6 +414,11 @@ export async function updateAddress(
     if (landmarkDirections !== undefined) updateData.landmarkDirections = landmarkDirections;
     if (contactPhone !== undefined) updateData.contactPhone = contactPhone || null;
     if (isDefault !== undefined) updateData.default = isDefault;
+    if (deliveryAddress !== undefined) updateData.deliveryAddress = deliveryAddress;
+    if (latitude !== undefined) updateData.latitude = latitude;
+    if (longitude !== undefined) updateData.longitude = longitude;
+    if (formattedAddress !== undefined) updateData.formattedAddress = formattedAddress;
+    if (locationUpdatedAt !== undefined) updateData.locationUpdatedAt = locationUpdatedAt;
 
     const updatedAddress = await databases.updateDocument(
       databaseId,

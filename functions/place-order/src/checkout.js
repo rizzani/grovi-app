@@ -155,6 +155,11 @@ export async function placeOrder({ userId, input, repo, now = () => new Date().t
   const address = await repo.getAddress(request.addressId);
   if (!address) throw new CheckoutError("ADDRESS_NOT_FOUND", "The selected address was not found.", 404);
   if (address.userId !== userId) throw new CheckoutError("ADDRESS_NOT_OWNED", "The selected address does not belong to this user.", 403);
+  if (!Number.isFinite(Number(address.latitude)) || !Number.isFinite(Number(address.longitude))
+    || Number(address.latitude) < -90 || Number(address.latitude) > 90
+    || Number(address.longitude) < -180 || Number(address.longitude) > 180) {
+    throw new CheckoutError("INVALID_DELIVERY_LOCATION", "Choose a valid delivery location before checkout.", 422);
+  }
 
   const cart = await repo.getCart(userId);
   if (!cart) throw new CheckoutError("EMPTY_CART", "The cart is empty.", 409);
@@ -185,7 +190,7 @@ export async function placeOrder({ userId, input, repo, now = () => new Date().t
     deliveryCommunity: address.community,
     deliveryStreet: optional(address.street),
     deliveryHouseDetails: optional(address.houseDetails),
-    deliveryLandmarkDirections: address.landmarkDirections,
+    deliveryLandmarkDirections: address.landmarkDirections || "",
     deliveryContactPhone: address.contactPhone,
     itemCount: totals.itemCount,
     storeCount: totals.storeCount,

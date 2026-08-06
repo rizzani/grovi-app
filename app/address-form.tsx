@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Text,
   View,
@@ -14,18 +14,19 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { Href, useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useUser } from "../contexts/UserContext";
 import {
   createAddress,
   updateAddress,
   getAddresses,
-  Address,
   CreateAddressParams,
   UpdateAddressParams,
 } from "../lib/profile-service";
 import { validatePhoneNumber, normalizePhoneNumber } from "../lib/phone-validation";
 import { JAMAICA_PARISHES, isValidJamaicaParish } from "../lib/jamaica-parishes";
+import { isValidCoordinates, GeocodedLocation } from "../lib/location-utils";
+import { consumePendingLocation } from "../lib/location-selection";
 
 export default function AddressFormScreen() {
   const router = useRouter();
@@ -50,6 +51,7 @@ export default function AddressFormScreen() {
   const [contactPhone, setContactPhone] = useState("");
   const [useMainNumber, setUseMainNumber] = useState(false);
   const [isDefault, setIsDefault] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<GeocodedLocation | null>(null);
 
   // Error states
   const [labelError, setLabelError] = useState<string | null>(null);
@@ -72,6 +74,30 @@ export default function AddressFormScreen() {
       setUseMainNumber(true);
     }
   }, [isEditing, userId, addressId, user?.phone]);
+
+  useEffect(() => {
+    if (typeof params.location !== "string") return;
+    try {
+      const location = JSON.parse(params.location) as GeocodedLocation;
+      if (isValidCoordinates(location)) {
+        setSelectedLocation(location);
+        setParish((current) => current || location.parish || "");
+        setCommunity((current) => current || location.community || "");
+        setStreet((current) => current || location.street || "");
+        setHouseDetails((current) => current || location.houseDetails || "");
+      }
+    } catch { setSelectedLocation(null); }
+  }, [params.location]);
+
+  useFocusEffect(useCallback(() => {
+    const location = consumePendingLocation();
+    if (!location || !isValidCoordinates(location)) return;
+    setSelectedLocation(location);
+    setParish((current) => current || location.parish || "");
+    setCommunity((current) => current || location.community || "");
+    setStreet((current) => current || location.street || "");
+    setHouseDetails((current) => current || location.houseDetails || "");
+  }, []));
 
   // Update contact phone when useMainNumber changes
   useEffect(() => {
@@ -101,13 +127,16 @@ export default function AddressFormScreen() {
         setContactPhone(address.contactPhone || "");
         setUseMainNumber(!address.contactPhone || address.contactPhone === user?.phone);
         setIsDefault(address.default);
+        if (isValidCoordinates({ latitude: address.latitude ?? NaN, longitude: address.longitude ?? NaN })) {
+          setSelectedLocation({ latitude: address.latitude!, longitude: address.longitude!, formattedAddress: address.formattedAddress || address.deliveryAddress || "" });
+        }
       } else {
         Alert.alert("Error", "Address not found", [
           { text: "OK", onPress: () => router.back() },
         ]);
       }
-    } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to load address", [
+    } catch (caught: any) {
+      Alert.alert("Error", caught.message || "Failed to load address", [
         { text: "OK", onPress: () => router.back() },
       ]);
     } finally {
@@ -163,14 +192,8 @@ export default function AddressFormScreen() {
       isValid = false;
     }
 
-    // Landmark directions is required (10-240 chars)
-    if (!landmarkDirections.trim()) {
-      setLandmarkDirectionsError("Landmark/Directions is required");
-      isValid = false;
-    } else if (landmarkDirections.trim().length < 10) {
-      setLandmarkDirectionsError("Please provide more detailed directions (at least 10 characters)");
-      isValid = false;
-    } else if (landmarkDirections.trim().length > 240) {
+    // Landmark directions are optional (0-240 chars).
+    if (landmarkDirections.trim().length > 240) {
       setLandmarkDirectionsError("Directions must be 240 characters or less");
       isValid = false;
     }
@@ -206,6 +229,11 @@ export default function AddressFormScreen() {
       return;
     }
 
+    if (!selectedLocation || !isValidCoordinates(selectedLocation)) {
+      Alert.alert("Delivery location required", "Search for your address, use your current location, or place the pin on the map before saving.");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -225,6 +253,11 @@ export default function AddressFormScreen() {
           landmarkDirections: landmarkDirections.trim(),
           contactPhone: finalContactPhone,
           isDefault,
+          deliveryAddress: selectedLocation.formattedAddress,
+          latitude: selectedLocation.latitude,
+          longitude: selectedLocation.longitude,
+          formattedAddress: selectedLocation.formattedAddress,
+          locationUpdatedAt: new Date().toISOString(),
         };
 
         await updateAddress(updateParams);
@@ -243,6 +276,11 @@ export default function AddressFormScreen() {
           landmarkDirections: landmarkDirections.trim(),
           contactPhone: finalContactPhone,
           isDefault,
+          deliveryAddress: selectedLocation.formattedAddress,
+          latitude: selectedLocation.latitude,
+          longitude: selectedLocation.longitude,
+          formattedAddress: selectedLocation.formattedAddress,
+          locationUpdatedAt: new Date().toISOString(),
         };
 
         await createAddress(createParams);
@@ -250,8 +288,8 @@ export default function AddressFormScreen() {
           { text: "OK", onPress: () => router.back() },
         ]);
       }
-    } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to save address");
+    } catch (caught: any) {
+      Alert.alert("Error", caught.message || "Failed to save address");
     } finally {
       setIsLoading(false);
     }
@@ -370,6 +408,29 @@ export default function AddressFormScreen() {
                     </Text>
                   </View>
                 </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Finding Your Address Section */}
+          <View style={styles.sectionGroup}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="navigate" size={18} color="#10B981" />
+              <Text style={styles.sectionHeaderText}>Finding Your Address</Text>
+            </View>
+            <View style={styles.section}>
+              <Text style={styles.sectionLabel}>Map location <Text style={styles.requiredText}>*</Text></Text>
+              <TouchableOpacity
+                style={styles.locationButton}
+                onPress={() => router.push({ pathname: "/location-picker", params: { addressId, latitude: selectedLocation?.latitude, longitude: selectedLocation?.longitude } } as unknown as Href)}
+                disabled={isLoading}
+              >
+                <Ionicons name={selectedLocation ? "checkmark-circle" : "map-outline"} size={22} color="#10B981" />
+                <View style={styles.locationButtonContent}>
+                  <Text style={styles.locationButtonTitle}>{selectedLocation ? "Location selected" : "Choose delivery location"}</Text>
+                  <Text style={styles.helpText} numberOfLines={2}>{selectedLocation?.formattedAddress || "Search an address, use GPS, or drag the map pin."}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#6B7280" />
               </TouchableOpacity>
             </View>
           </View>
@@ -506,14 +567,6 @@ export default function AddressFormScreen() {
               </TouchableOpacity>
               {parishError && <Text style={styles.errorText}>{parishError}</Text>}
             </View>
-          </View>
-
-          {/* Finding Your Address Section */}
-          <View style={styles.sectionGroup}>
-            <View style={styles.sectionHeader}>
-              <Ionicons name="navigate" size={18} color="#10B981" />
-              <Text style={styles.sectionHeaderText}>Finding Your Address</Text>
-            </View>
 
             {/* Contact Phone */}
             <View style={styles.section}>
@@ -567,15 +620,15 @@ export default function AddressFormScreen() {
             </View>
 
             {/* Landmark / Directions */}
-            <View style={styles.section}>
+            <View style={[styles.section, styles.optionalSection]}>
               <View style={styles.criticalFieldHeader}>
                 <Ionicons name="alert-circle" size={18} color="#F59E0B" />
                 <Text style={styles.sectionLabel}>
-                  Landmark / Directions <Text style={styles.requiredText}>*</Text>
+                  Landmark / Directions <Text style={styles.optionalText}>(Optional)</Text>
                 </Text>
               </View>
               <Text style={styles.helpText}>
-                Help the driver find you. Add landmarks, gate color, nearby shop/church, etc.
+                Optional extra context for the driver. Your map pin and address are used for delivery.
               </Text>
               <View
                 style={[
@@ -787,6 +840,18 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     lineHeight: 16,
   },
+  locationButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+    borderRadius: 12,
+    padding: 14,
+    backgroundColor: "#ECFDF5",
+  },
+  locationButtonContent: { flex: 1 },
+  locationButtonTitle: { fontSize: 15, fontWeight: "600", color: "#047857", marginBottom: 3 },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",

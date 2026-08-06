@@ -15,7 +15,7 @@ import { useUser } from "../../contexts/UserContext";
 import { Address, getAddresses } from "../../lib/profile-service";
 
 const formatAddress = (address: Address) =>
-  [address.houseDetails, address.street, address.community, address.parish]
+  address.formattedAddress || address.deliveryAddress || [address.houseDetails, address.street, address.community, address.parish]
     .filter(Boolean)
     .join(", ");
 
@@ -111,7 +111,7 @@ export default function CheckoutAddressScreen() {
                     {address.default && <Text style={styles.defaultBadge}>Default</Text>}
                   </View>
                   <Text style={styles.secondaryText}>{formatAddress(address)}</Text>
-                  <Text style={styles.secondaryText} numberOfLines={2}>{address.landmarkDirections}</Text>
+                  {address.landmarkDirections && <Text style={styles.secondaryText} numberOfLines={2}>{address.landmarkDirections}</Text>}
                 </View>
               </TouchableOpacity>
             );

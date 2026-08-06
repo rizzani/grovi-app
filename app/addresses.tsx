@@ -24,24 +24,9 @@ interface AddressCardProps {
 
 function AddressCard({ address, onEdit, onDelete, isDefault }: AddressCardProps) {
   const formatAddress = () => {
-    const parts = [];
-    
-    // Order: House Details, Street, Community, Parish (matching form order)
-    if (address.houseDetails) {
-      parts.push(address.houseDetails);
-    }
-    
-    if (address.street) {
-      parts.push(address.street);
-    }
-    
-    // Community is always shown
-    parts.push(address.community);
-    
-    // Add parish
-    parts.push(address.parish);
-    
-    return parts.join(", ");
+    return [address.houseDetails, address.street, address.community, address.parish]
+      .filter(Boolean)
+      .join(", ");
   };
 
   return (

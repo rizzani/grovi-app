@@ -188,7 +188,7 @@ export default function PaymentMethodsScreen() {
             <Ionicons name="card-outline" size={64} color="#9CA3AF" />
             <Text style={styles.emptyTitle}>No payment methods</Text>
             <Text style={styles.emptyText}>
-              You haven't saved any payment methods yet.
+              You haven&apos;t saved any payment methods yet.
             </Text>
             <View style={styles.infoBox}>
               <Ionicons name="information-circle-outline" size={20} color="#6B7280" />

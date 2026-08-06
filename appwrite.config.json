@@ -24,6 +24,25 @@
           "value": "grovi_staging"
         }
       ]
+    },
+    {
+      "$id": "calculate-distance",
+      "name": "Calculate Store Delivery Distances",
+      "runtime": "node-22",
+      "path": "functions/calculate-distance",
+      "entrypoint": "src/main.js",
+      "commands": "npm install --omit=dev",
+      "execute": ["users"],
+      "events": [],
+      "schedule": "",
+      "timeout": 15,
+      "enabled": true,
+      "logging": true,
+      "ignore": ["node_modules", ".git", "test"],
+      "scopes": ["documents.read"],
+      "vars": [
+        { "$id": "grovi-distance-database-id", "key": "GROVI_DATABASE_ID", "value": "grovi_staging" }
+      ]
     }
   ]
 }

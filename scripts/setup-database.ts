@@ -1,4 +1,5 @@
 import { Client, Databases, ID, Permission, Role } from "appwrite";
+import { Client as AdminClient, Databases as AdminDatabases } from "node-appwrite";
 import * as dotenv from "dotenv";
 import * as path from "path";
 import * as fs from "fs";
@@ -22,6 +23,12 @@ const endpoint = process.env.EXPO_PUBLIC_APPWRITE_ENDPOINT || "";
 const projectId = process.env.EXPO_PUBLIC_APPWRITE_PROJECT_ID || "";
 const apiKey = process.env.APPWRITE_API_KEY || "";
 const databaseId = process.env.APPWRITE_DATABASE_ID || "grovi-db";
+const adminDatabases = new AdminDatabases(
+  new AdminClient()
+    .setEndpoint(endpoint)
+    .setProject(projectId)
+    .setKey(apiKey)
+);
 
 if (!endpoint || !projectId || !apiKey) {
   console.error("Missing required environment variables:");
@@ -478,8 +485,11 @@ async function setupDatabase() {
       { key: "community", size: 60, required: true }, // Community/Area
       { key: "street", size: 60, required: false }, // Street/Scheme/Road (optional)
       { key: "houseDetails", size: 30, required: false }, // House/Lot/Apt (optional)
-      { key: "landmarkDirections", size: 240, required: true }, // Landmark/Directions (critical)
+      { key: "landmarkDirections", size: 240, required: false }, // Optional extra delivery context
       { key: "contactPhone", size: 20, required: false }, // Contact phone (optional)
+      { key: "deliveryAddress", size: 500, required: false },
+      { key: "formattedAddress", size: 500, required: false },
+      { key: "locationUpdatedAt", size: 50, required: false },
     ];
 
     for (const attr of addressesStringAttributes) {
@@ -501,6 +511,37 @@ async function setupDatabase() {
         } else {
           console.error(`  ✗ Failed to create attribute '${attr.key}': ${error.message}`);
         }
+      }
+    }
+
+    // Existing deployments may have created this field as required before
+    // map-based delivery locations were introduced. Make it optional so a
+    // coordinate-accurate address can be saved without manual directions.
+    try {
+      await adminDatabases.updateStringAttribute(
+        databaseId,
+        addressesCollectionId,
+        "landmarkDirections",
+        false,
+        ""
+      );
+      console.log("  ✓ Updated 'landmarkDirections' to optional");
+    } catch (error: any) {
+      console.warn(`  ⚠ Could not update 'landmarkDirections' requirement: ${error.message}`);
+    }
+
+    for (const attr of ["latitude", "longitude"]) {
+      try {
+        await appwriteRequest(
+          "POST",
+          `/databases/${databaseId}/collections/${addressesCollectionId}/attributes/float`,
+          { key: attr, required: false, min: -180, max: 180 }
+        );
+        console.log(`  ✓ Created attribute '${attr}' (float)`);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      } catch (error: any) {
+        if (error.code === 409) console.log(`  - Attribute '${attr}' already exists`);
+        else console.error(`  ✗ Failed to create attribute '${attr}': ${error.message}`);
       }
     }
 

@@ -248,7 +248,7 @@ export default function SignUp() {
                 style={styles.logo}
                 contentFit="contain"
               />
-              <Text style={styles.title}>Let's get you started</Text>
+              <Text style={styles.title}>Let&apos;s get you started</Text>
               <Text style={styles.subtitle}>Fresh groceries, fast delivery.</Text>
             </View>
 

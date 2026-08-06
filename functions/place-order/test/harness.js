@@ -75,6 +75,7 @@ export function fixture({ multiStore = false } = {}) {
   const repo = new MemoryRepository({
     addresses: [{
       $id: "address-1", userId: "user-1", label: "Home", parish: "Kingston",
+      latitude: 18.0179, longitude: -76.8099,
       community: "Half Way Tree", street: "Hope Road", houseDetails: "12",
       landmarkDirections: "Beside the park", contactPhone: "+18765550123",
     }],
