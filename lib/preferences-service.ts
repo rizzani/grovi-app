@@ -1,5 +1,5 @@
 import { databases, databaseId } from "./appwrite-client";
-import { ID, Query, Permission, Role } from "appwrite";
+import { ID, Query, Permission, Role, Models } from "appwrite";
 import { logPreferencesUpdated } from "./audit-service";
 
 const USER_PREFERENCES_COLLECTION_ID = "user_preferences";
@@ -12,6 +12,9 @@ export interface UserPreferences {
   createdAt: string;
   updatedAt: string;
 }
+
+type UserPreferencesDocument = Models.Document & UserPreferences;
+type UserPreferencesCreateDocument = Models.Document & Omit<UserPreferences, "createdAt" | "updatedAt">;
 
 export interface UpdatePreferencesParams {
   userId: string;
@@ -26,7 +29,7 @@ export interface UpdatePreferencesParams {
  */
 export async function getPreferences(userId: string): Promise<UserPreferences | null> {
   try {
-    const result = await databases.listDocuments(
+    const result = await databases.listDocuments<UserPreferencesDocument>(
       databaseId,
       USER_PREFERENCES_COLLECTION_ID,
       [Query.equal("userId", userId), Query.limit(1)]
@@ -36,7 +39,7 @@ export async function getPreferences(userId: string): Promise<UserPreferences | 
       return null;
     }
 
-    return result.documents[0] as UserPreferences;
+    return result.documents[0];
   } catch (error: any) {
     const errorMessage = error.message || "Failed to retrieve preferences";
     console.error("Preferences retrieval error:", errorMessage);
@@ -57,7 +60,7 @@ export async function createOrUpdatePreferences(
 
     // Check if preferences already exist
     try {
-      const existingPreferences = await databases.listDocuments(
+      const existingPreferences = await databases.listDocuments<UserPreferencesDocument>(
         databaseId,
         USER_PREFERENCES_COLLECTION_ID,
         [Query.equal("userId", userId), Query.limit(1)]
@@ -65,7 +68,7 @@ export async function createOrUpdatePreferences(
 
       if (existingPreferences.documents.length > 0) {
         // Update existing preferences
-        const existing = existingPreferences.documents[0] as UserPreferences;
+        const existing = existingPreferences.documents[0];
         
         const updateData: any = {};
 
@@ -76,7 +79,7 @@ export async function createOrUpdatePreferences(
           updateData.categoryPreferences = categoryPreferences;
         }
 
-        const updatedPreferences = await databases.updateDocument(
+        const updatedPreferences = await databases.updateDocument<UserPreferencesDocument>(
           databaseId,
           USER_PREFERENCES_COLLECTION_ID,
           existing.$id,
@@ -88,7 +91,7 @@ export async function createOrUpdatePreferences(
           console.warn("Failed to log preferences update:", error);
         });
 
-        return updatedPreferences as UserPreferences;
+        return updatedPreferences;
       }
     } catch (error: any) {
       // If query fails, continue to create new preferences
@@ -99,7 +102,7 @@ export async function createOrUpdatePreferences(
 
     // Create new preferences with document-level permissions
     // Note: createdAt and updatedAt are automatically handled by Appwrite
-    const newPreferences = await databases.createDocument(
+    const newPreferences = await databases.createDocument<UserPreferencesCreateDocument>(
       databaseId,
       USER_PREFERENCES_COLLECTION_ID,
       ID.unique(),
@@ -122,7 +125,14 @@ export async function createOrUpdatePreferences(
       console.warn("Failed to log preferences creation:", error);
     });
 
-    return newPreferences as UserPreferences;
+    return {
+      ...newPreferences,
+      userId,
+      dietaryPreferences: dietaryPreferences || [],
+      categoryPreferences: categoryPreferences || [],
+      createdAt: newPreferences.$createdAt,
+      updatedAt: newPreferences.$createdAt,
+    };
   } catch (error: any) {
     const errorMessage = error.message || "Failed to create/update preferences";
     console.error("Preferences creation/update error:", errorMessage);

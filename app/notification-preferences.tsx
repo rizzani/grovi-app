@@ -356,7 +356,7 @@ export default function NotificationPreferencesScreen() {
     );
   }
 
-  const pushPermissionDenied = pushPermissionStatus && !pushPermissionStatus.granted && !pushPermissionStatus.canAskAgain;
+  const pushPermissionDenied = pushPermissionStatus !== null && !pushPermissionStatus.granted && !pushPermissionStatus.canAskAgain;
   const isExpoGo = Constants.appOwnership === 'expo';
   const showExpoGoWarning = isExpoGo && Platform.OS === 'android';
 

@@ -1,5 +1,5 @@
 import { databases, databaseId } from "./appwrite-client";
-import { ID, Query, Permission, Role } from "appwrite";
+import { ID, Query, Permission, Role, Models } from "appwrite";
 import {
   logNotificationPreferencesUpdated,
   logPushTokenUpdated,
@@ -18,10 +18,13 @@ export interface NotificationPreferences {
   emailEnabled: boolean;
   smsEnabled: boolean;
   // Push token (stored when push is enabled)
-  pushToken?: string;
+  pushToken?: string | null;
   createdAt: string;
   updatedAt: string;
 }
+
+type NotificationPreferencesDocument = Models.Document & NotificationPreferences;
+type NotificationPreferencesCreateDocument = Models.Document & Omit<NotificationPreferences, "createdAt" | "updatedAt">;
 
 export interface UpdateNotificationPreferencesParams {
   userId: string;
@@ -42,7 +45,7 @@ export async function getNotificationPreferences(
   userId: string
 ): Promise<NotificationPreferences | null> {
   try {
-    const result = await databases.listDocuments(
+    const result = await databases.listDocuments<NotificationPreferencesDocument>(
       databaseId,
       NOTIFICATION_PREFERENCES_COLLECTION_ID,
       [Query.equal("userId", userId), Query.limit(1)]
@@ -52,7 +55,7 @@ export async function getNotificationPreferences(
       return null;
     }
 
-    return result.documents[0] as NotificationPreferences;
+    return result.documents[0];
   } catch (error: any) {
     const errorMessage = error.message || "Failed to retrieve notification preferences";
     console.error("Notification preferences retrieval error:", errorMessage);
@@ -82,14 +85,14 @@ export async function createOrUpdateNotificationPreferences(
     // Check if preferences already exist
     let existingPreferences: NotificationPreferences | null = null;
     try {
-      const result = await databases.listDocuments(
+      const result = await databases.listDocuments<NotificationPreferencesDocument>(
         databaseId,
         NOTIFICATION_PREFERENCES_COLLECTION_ID,
         [Query.equal("userId", userId), Query.limit(1)]
       );
 
       if (result.documents.length > 0) {
-        existingPreferences = result.documents[0] as NotificationPreferences;
+        existingPreferences = result.documents[0];
       }
     } catch (error: any) {
       // If query fails, continue to create new preferences
@@ -141,7 +144,7 @@ export async function createOrUpdateNotificationPreferences(
         }
       }
 
-      const updatedPreferences = await databases.updateDocument(
+      const updatedPreferences = await databases.updateDocument<NotificationPreferencesDocument>(
         databaseId,
         NOTIFICATION_PREFERENCES_COLLECTION_ID,
         existingPreferences.$id,
@@ -177,7 +180,7 @@ export async function createOrUpdateNotificationPreferences(
         }
       }
 
-      return updatedPreferences as NotificationPreferences;
+      return updatedPreferences;
     }
 
     // Create new preferences with default values
@@ -194,7 +197,7 @@ export async function createOrUpdateNotificationPreferences(
       updatedAt: "",
     };
 
-    const newPreferences = await databases.createDocument(
+    const newPreferences = await databases.createDocument<NotificationPreferencesCreateDocument>(
       databaseId,
       NOTIFICATION_PREFERENCES_COLLECTION_ID,
       ID.unique(),
@@ -232,7 +235,18 @@ export async function createOrUpdateNotificationPreferences(
       });
     }
 
-    return newPreferences as NotificationPreferences;
+    return {
+      ...newPreferences,
+      userId,
+      orderUpdatesEnabled: defaultPreferences.orderUpdatesEnabled,
+      promotionsEnabled: defaultPreferences.promotionsEnabled,
+      pushEnabled: defaultPreferences.pushEnabled,
+      emailEnabled: defaultPreferences.emailEnabled,
+      smsEnabled: defaultPreferences.smsEnabled,
+      pushToken: defaultPreferences.pushToken,
+      createdAt: newPreferences.$createdAt,
+      updatedAt: newPreferences.$createdAt,
+    };
   } catch (error: any) {
     const errorMessage =
       error.message || "Failed to create/update notification preferences";

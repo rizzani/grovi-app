@@ -397,7 +397,7 @@ runTest("Title startsWith used as tie-break", () => {
 runTest("Length bonus is capped for exact title matches", () => {
   const query = "A";
   const shortProduct = createProduct("A"); // Very short title
-  const matchInfo = getMatchInfo(shortProduct, "Brand", undefined, normalizeText(query), tokenize(query));
+  const matchInfo = getMatchInfo(shortProduct, "Zed", undefined, normalizeText(query), tokenize(query));
   
   const score = calculateRelevanceScore(shortProduct, "Brand", undefined, matchInfo, undefined);
   
@@ -413,7 +413,7 @@ runTest("Length bonus is capped for exact title matches", () => {
   
   // Test with extremely short title to verify cap
   const veryShortProduct = createProduct("X");
-  const veryShortMatchInfo = getMatchInfo(veryShortProduct, "Brand", undefined, normalizeText("x"), tokenize("x"));
+  const veryShortMatchInfo = getMatchInfo(veryShortProduct, "Zed", undefined, normalizeText("x"), tokenize("x"));
   const veryShortScore = calculateRelevanceScore(veryShortProduct, "Brand", undefined, veryShortMatchInfo, undefined);
   
   // Bonus should be capped at 15, not unlimited
@@ -423,14 +423,14 @@ runTest("Length bonus is capped for exact title matches", () => {
 
 runTest("Length bonus is capped for startsWith matches", () => {
   const query = "test";
-  const shortProduct = createProduct("Test"); // Short title
+  const shortProduct = createProduct("Test Product"); // Short title that starts with the query
   const matchInfo = getMatchInfo(shortProduct, "Brand", undefined, normalizeText(query), tokenize(query));
   
   const score = calculateRelevanceScore(shortProduct, "Brand", undefined, matchInfo, undefined);
   
   // Base score: 700 (titleStartsWith)
-  // Length bonus: max(0, 50 - 4) * 0.05 = 2.3, but capped at 10
-  const expectedBonus = Math.min(10, Math.max(0, 50 - 4) * 0.05);
+  // Length bonus: max(0, 50 - 12) * 0.05 = 1.9, but capped at 10
+  const expectedBonus = Math.min(10, Math.max(0, 50 - 12) * 0.05);
   const baseScore = RANKING_WEIGHTS.titleStartsWith;
   const maxPossibleScore = baseScore + 10;
   

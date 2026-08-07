@@ -114,7 +114,7 @@ export default function CategoriesScreen() {
     return () => {
       mountedRef.current = false;
     };
- b  }, [loadCategories]);
+  }, [loadCategories]);
 
   // Load search suggestions as user types
   useEffect(() => {

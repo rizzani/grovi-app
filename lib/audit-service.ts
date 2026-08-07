@@ -20,8 +20,8 @@ export type AuditEventType =
 
 export interface AuditLogMetadata {
   [key: string]: any;
-  oldValue?: string;
-  newValue?: string;
+  oldValue?: string | null;
+  newValue?: string | null;
   field?: string;
 }
 

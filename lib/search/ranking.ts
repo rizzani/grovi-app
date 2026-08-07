@@ -269,7 +269,9 @@ export function getMatchInfo(
   
   // Apply fuzzy matching to category if no exact match found
   if (!categoryExact && !categoryContains && categoryNameNormalized) {
-    const categoryFuzzyScore = calculateFuzzyScore(category.name, queryNormalized);
+    const categoryFuzzyScore = category
+      ? calculateFuzzyScore(category.name, queryNormalized)
+      : 0;
     if (categoryFuzzyScore >= FUZZY_MATCH_CONFIG.similarityThreshold) {
       categoryContains = true;
     }
@@ -336,7 +338,7 @@ export function calculateRelevanceScore(
   }
   
   // Token coverage (for multi-word queries)
-  if (matchInfo.tokensTotal > 0 && matchInfo.tokensMatched > 0) {
+  if (matchInfo.tokensTotal > 1 && matchInfo.tokensMatched > 0) {
     const tokenCoverageRatio = matchInfo.tokensMatched / matchInfo.tokensTotal;
     const tokenScore = RANKING_WEIGHTS.tokenCoverageTitleMax * tokenCoverageRatio;
     score += tokenScore;
@@ -618,7 +620,7 @@ export function rankResults<T extends {
   });
   
   // Remove internal fields before returning
-  return scoredResults.map(({ _matchInfo, _distanceKm, ...result }) => result);
+  return scoredResults.map(({ _matchInfo, _distanceKm, ...result }) => result as T);
 }
 
 /**

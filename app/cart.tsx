@@ -54,8 +54,8 @@ function getOptimizedImageUrl(imageUrl: string | undefined): string | undefined 
 
 interface CartItemRowProps {
   item: CartItem;
-  onQuantityChange: (productId: string, storeId: string, quantity: number) => void;
-  onRemove: (productId: string, storeId: string) => void;
+  onQuantityChange: (productId: string, storeId: string, quantity: number) => Promise<void>;
+  onRemove: (productId: string, storeId: string) => Promise<void>;
   validation?: {
     isAvailable: boolean;
     priceChanged: boolean;

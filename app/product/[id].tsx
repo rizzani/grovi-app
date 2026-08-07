@@ -57,6 +57,7 @@ interface StoreLocation {
   parish?: string;
   address_line1?: string;
   phone?: string;
+  logo_url?: string;
 }
 
 interface Category {

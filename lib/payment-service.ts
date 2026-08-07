@@ -1,5 +1,5 @@
 import { databases, databaseId } from "./appwrite-client";
-import { ID, Query, Permission, Role } from "appwrite";
+import { Query, Models } from "appwrite";
 import { logPaymentMethodRemoved } from "./audit-service";
 
 const PAYMENT_METHODS_COLLECTION_ID = "payment_methods";
@@ -15,6 +15,8 @@ export interface PaymentMethod {
   createdAt: string;
 }
 
+type PaymentMethodDocument = Models.Document & PaymentMethod;
+
 /**
  * Retrieves all payment methods for a user
  * @param userId - User ID
@@ -22,13 +24,13 @@ export interface PaymentMethod {
  */
 export async function getPaymentMethods(userId: string): Promise<PaymentMethod[]> {
   try {
-    const result = await databases.listDocuments(
+    const result = await databases.listDocuments<PaymentMethodDocument>(
       databaseId,
       PAYMENT_METHODS_COLLECTION_ID,
       [Query.equal("userId", userId), Query.orderDesc("$createdAt")]
     );
 
-    return result.documents as PaymentMethod[];
+    return result.documents;
   } catch (error: any) {
     const errorMessage = error.message || "Failed to retrieve payment methods";
     console.error("Payment methods retrieval error:", errorMessage);
@@ -44,11 +46,11 @@ export async function getPaymentMethods(userId: string): Promise<PaymentMethod[]
 export async function deletePaymentMethod(paymentMethodId: string): Promise<void> {
   try {
     // Get the payment method to check userId and get details for audit log
-    const paymentMethod = await databases.getDocument(
+    const paymentMethod = await databases.getDocument<PaymentMethodDocument>(
       databaseId,
       PAYMENT_METHODS_COLLECTION_ID,
       paymentMethodId
-    ) as PaymentMethod;
+    );
 
     const userId = paymentMethod.userId;
 

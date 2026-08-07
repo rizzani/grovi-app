@@ -26,6 +26,9 @@ interface PerformanceTestResult {
     is_active: boolean;
     brand_id: string;
     slug: string;
+    delivery_time_minutes?: number;
+    latitude?: number;
+    longitude?: number;
   };
   relevanceScore?: number;
 }

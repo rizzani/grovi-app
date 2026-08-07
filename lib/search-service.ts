@@ -1,5 +1,6 @@
 import { Query } from "appwrite";
 import { databases, databaseId } from "./appwrite-client";
+import type { Models } from "appwrite";
 import { SearchSuggestion } from "../components/SearchBar";
 import {
   rankResults,
@@ -347,12 +348,12 @@ export async function getSearchSuggestions(
  */
 export async function getAllCategories(): Promise<Category[]> {
   try {
-    const response = await databases.listDocuments(
+    const response = await databases.listDocuments<Models.Document & Category>(
       databaseId,
       CATEGORIES_COLLECTION_ID,
       [Query.limit(1000)]
     );
-    return response.documents as Category[];
+    return response.documents;
   } catch (error: any) {
     console.error("[Categories] Error fetching all categories:", error);
     throw error;

@@ -87,7 +87,7 @@ export default function ProductImageGallery({
   const panStartY = useRef(0);
   
   // Zoom indicator timeout
-  const zoomIndicatorTimeout = useRef<NodeJS.Timeout | null>(null);
+  const zoomIndicatorTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Gesture handler refs
   const doubleTapRef = useRef(null);

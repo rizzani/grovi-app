@@ -1,5 +1,18 @@
 import { SearchResult } from "./search-service";
-import { FilterState } from "../components/ProductFilters";
+
+export interface FilterState {
+  brands: string[];
+  categories: string[];
+  partnerStores: string[];
+  inStock: boolean | null;
+  quickDelivery: boolean | null;
+  priceRange: { min: number | null; max: number | null };
+  dietaryRestrictions: {
+    vegan: boolean;
+    vegetarian: boolean;
+    glutenFree: boolean;
+  };
+}
 
 /**
  * Utility function to apply non-price filters to search results

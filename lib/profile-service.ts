@@ -1,5 +1,5 @@
 import { databases, databaseId } from "./appwrite-client";
-import { ID, Query, Permission, Role } from "appwrite";
+import { ID, Query, Permission, Role, Models } from "appwrite";
 import {
   logAddressCreated,
   logAddressUpdated,
@@ -13,9 +13,9 @@ const ADDRESSES_COLLECTION_ID = "addresses";
 export interface Profile {
   $id: string;
   userId: string;
-  firstName?: string;
-  lastName?: string;
-  name?: string; // Kept for backward compatibility during migration
+  firstName?: string | null;
+  lastName?: string | null;
+  name?: string | null; // Kept for backward compatibility during migration
   phone: string;
   email: string;
   createdAt: string;
@@ -27,10 +27,10 @@ export interface Address {
   label: string;
   parish: string;
   community: string;
-  street?: string;
-  houseDetails?: string;
-  landmarkDirections?: string;
-  contactPhone?: string;
+  street?: string | null;
+  houseDetails?: string | null;
+  landmarkDirections?: string | null;
+  contactPhone?: string | null;
   default: boolean;
   deliveryAddress?: string;
   latitude?: number;
@@ -39,6 +39,11 @@ export interface Address {
   locationUpdatedAt?: string;
   createdAt: string;
 }
+
+type ProfileDocument = Models.Document & Profile;
+type AddressDocument = Models.Document & Address;
+type ProfileCreateDocument = Models.Document & Omit<Profile, "createdAt">;
+type AddressCreateDocument = Models.Document & Omit<Address, "createdAt">;
 
 export interface CreateProfileParams {
   userId: string;
@@ -129,7 +134,7 @@ export async function createOrUpdateProfile(
 
     // Check if profile already exists
     try {
-      const existingProfiles = await databases.listDocuments(
+      const existingProfiles = await databases.listDocuments<ProfileDocument>(
         databaseId,
         PROFILES_COLLECTION_ID,
         [Query.equal("userId", userId), Query.limit(1)]
@@ -137,13 +142,13 @@ export async function createOrUpdateProfile(
 
       if (existingProfiles.documents.length > 0) {
         // Update existing profile
-        const existingProfile = existingProfiles.documents[0] as Profile;
+        const existingProfile = existingProfiles.documents[0];
         
         // If we don't have firstName/lastName, try to get from existing profile or split existing name
         if (!finalFirstName && !finalLastName) {
           if (existingProfile.firstName || existingProfile.lastName) {
-            finalFirstName = finalFirstName || existingProfile.firstName;
-            finalLastName = finalLastName || existingProfile.lastName;
+            finalFirstName = finalFirstName || existingProfile.firstName || undefined;
+            finalLastName = finalLastName || existingProfile.lastName || undefined;
           } else if (existingProfile.name) {
             const split = splitName(existingProfile.name);
             finalFirstName = split.firstName;
@@ -172,13 +177,13 @@ export async function createOrUpdateProfile(
           updateData.name = name || null;
         }
 
-        const updatedProfile = await databases.updateDocument(
+        const updatedProfile = await databases.updateDocument<ProfileDocument>(
           databaseId,
           PROFILES_COLLECTION_ID,
           existingProfile.$id,
           updateData
         );
-        return updatedProfile as Profile;
+        return updatedProfile;
       }
     } catch (error: any) {
       // If query fails, continue to create new profile
@@ -192,7 +197,7 @@ export async function createOrUpdateProfile(
     // Permissions ensure only the user can read/write their own profile
     const fullName = [finalFirstName, finalLastName].filter(Boolean).join(" ").trim() || null;
     
-    const newProfile = await databases.createDocument(
+    const newProfile = await databases.createDocument<ProfileCreateDocument>(
       databaseId,
       PROFILES_COLLECTION_ID,
       ID.unique(),
@@ -210,7 +215,16 @@ export async function createOrUpdateProfile(
       ]
     );
 
-    return newProfile as Profile;
+    return {
+      ...newProfile,
+      userId,
+      email,
+      phone,
+      firstName: finalFirstName,
+      lastName: finalLastName,
+      name: fullName,
+      createdAt: newProfile.$createdAt,
+    };
   } catch (error: any) {
     const errorMessage = error.message || "Failed to create/update profile";
     console.error("Profile creation error:", errorMessage);
@@ -225,7 +239,7 @@ export async function createOrUpdateProfile(
  */
 export async function getProfile(userId: string): Promise<Profile | null> {
   try {
-    const result = await databases.listDocuments(
+    const result = await databases.listDocuments<ProfileDocument>(
       databaseId,
       PROFILES_COLLECTION_ID,
       [Query.equal("userId", userId), Query.limit(1)]
@@ -235,7 +249,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
       return null;
     }
 
-    return result.documents[0] as Profile;
+    return result.documents[0];
   } catch (error: any) {
     const errorMessage = error.message || "Failed to retrieve profile";
     console.error("Profile retrieval error:", errorMessage);
@@ -286,7 +300,7 @@ export async function createAddress(
 
     // Note: createdAt is automatically set by Appwrite
     // Permissions ensure only the user can read/write their own addresses
-    const newAddress = await databases.createDocument(
+    const newAddress = await databases.createDocument<AddressCreateDocument>(
       databaseId,
       ADDRESSES_COLLECTION_ID,
       ID.unique(),
@@ -324,7 +338,24 @@ export async function createAddress(
       });
     }
 
-    return newAddress as Address;
+    return {
+      ...newAddress,
+      userId,
+      label,
+      parish,
+      community,
+      street: street || undefined,
+      houseDetails: houseDetails || undefined,
+      landmarkDirections,
+      contactPhone: contactPhone || undefined,
+      default: finalIsDefault,
+      deliveryAddress: deliveryAddress || formattedAddress,
+      latitude,
+      longitude,
+      formattedAddress,
+      locationUpdatedAt: locationUpdatedAt || new Date().toISOString(),
+      createdAt: newAddress.$createdAt,
+    };
   } catch (error: any) {
     const errorMessage = error.message || "Failed to create address";
     console.error("Address creation error:", errorMessage);
@@ -339,7 +370,7 @@ export async function createAddress(
  */
 export async function getAddresses(userId: string): Promise<Address[]> {
   try {
-    const result = await databases.listDocuments(
+    const result = await databases.listDocuments<AddressDocument>(
       databaseId,
       ADDRESSES_COLLECTION_ID,
       [Query.equal("userId", userId), Query.orderDesc("default")]
@@ -347,7 +378,7 @@ export async function getAddresses(userId: string): Promise<Address[]> {
 
     // Sort by default first, then by creation date (most recent first)
     // Note: Appwrite uses $createdAt internally, but we can sort in JavaScript
-    const addresses = result.documents as Address[];
+    const addresses: Address[] = result.documents;
     addresses.sort((a, b) => {
       // First sort by default (true first)
       if (a.default !== b.default) {
@@ -394,11 +425,11 @@ export async function updateAddress(
     } = params;
 
     // Get current address to check userId
-    const currentAddress = await databases.getDocument(
+    const currentAddress = await databases.getDocument<AddressDocument>(
       databaseId,
       ADDRESSES_COLLECTION_ID,
       addressId
-    ) as Address;
+    );
 
     // If setting as default, unset other default addresses
     if (isDefault === true) {
@@ -420,7 +451,7 @@ export async function updateAddress(
     if (formattedAddress !== undefined) updateData.formattedAddress = formattedAddress;
     if (locationUpdatedAt !== undefined) updateData.locationUpdatedAt = locationUpdatedAt;
 
-    const updatedAddress = await databases.updateDocument(
+    const updatedAddress = await databases.updateDocument<AddressDocument>(
       databaseId,
       ADDRESSES_COLLECTION_ID,
       addressId,
@@ -454,7 +485,7 @@ export async function updateAddress(
       });
     }
 
-    return updatedAddress as Address;
+    return updatedAddress;
   } catch (error: any) {
     const errorMessage = error.message || "Failed to update address";
     console.error("Address update error:", errorMessage);
@@ -471,11 +502,11 @@ export async function updateAddress(
 export async function deleteAddress(addressId: string): Promise<void> {
   try {
     // Get the address to check if it's default and get userId
-    const address = await databases.getDocument(
+    const address = await databases.getDocument<AddressDocument>(
       databaseId,
       ADDRESSES_COLLECTION_ID,
       addressId
-    ) as Address;
+    );
 
     const wasDefault = address.default;
     const userId = address.userId;
@@ -494,7 +525,7 @@ export async function deleteAddress(addressId: string): Promise<void> {
 
     // After deletion, check remaining addresses
     try {
-      const remainingAddressesResult = await databases.listDocuments(
+      const remainingAddressesResult = await databases.listDocuments<AddressDocument>(
         databaseId,
         ADDRESSES_COLLECTION_ID,
         [Query.equal("userId", userId)]
@@ -503,7 +534,7 @@ export async function deleteAddress(addressId: string): Promise<void> {
       if (remainingAddressesResult.documents.length > 0) {
         // If only one address remains, automatically set it as default
         if (remainingAddressesResult.documents.length === 1) {
-          const remainingAddress = remainingAddressesResult.documents[0] as Address;
+          const remainingAddress = remainingAddressesResult.documents[0];
           if (!remainingAddress.default) {
             await databases.updateDocument(
               databaseId,
@@ -519,7 +550,7 @@ export async function deleteAddress(addressId: string): Promise<void> {
           }
         } else if (wasDefault) {
           // If deleted address was default and multiple addresses remain, set most recent as default
-          const remainingAddresses = remainingAddressesResult.documents as Address[];
+          const remainingAddresses: Address[] = remainingAddressesResult.documents;
           remainingAddresses.sort((a, b) => {
             const dateA = new Date(a.createdAt).getTime();
             const dateB = new Date(b.createdAt).getTime();
@@ -578,7 +609,7 @@ export async function setDefaultAddress(
     )?.$id;
 
     // Set this address as default
-    const updatedAddress = await databases.updateDocument(
+    const updatedAddress = await databases.updateDocument<AddressDocument>(
       databaseId,
       ADDRESSES_COLLECTION_ID,
       addressId,
@@ -592,7 +623,7 @@ export async function setDefaultAddress(
       console.warn("Failed to log default address change:", error);
     });
 
-    return updatedAddress as Address;
+    return updatedAddress;
   } catch (error: any) {
     const errorMessage = error.message || "Failed to set default address";
     console.error("Set default address error:", errorMessage);

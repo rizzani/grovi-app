@@ -7,6 +7,8 @@ import { updatePushToken } from "./notification-preferences-service";
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
@@ -36,7 +38,7 @@ export async function requestPushPermissions(): Promise<PushNotificationPermissi
 
     return {
       granted: finalStatus === "granted",
-      canAskAgain: finalStatus === "undetermined",
+      canAskAgain: finalStatus === Notifications.PermissionStatus.UNDETERMINED,
       status: finalStatus,
     };
   } catch (error: any) {
@@ -44,7 +46,7 @@ export async function requestPushPermissions(): Promise<PushNotificationPermissi
     return {
       granted: false,
       canAskAgain: false,
-      status: "undetermined",
+      status: Notifications.PermissionStatus.UNDETERMINED,
     };
   }
 }
@@ -58,7 +60,7 @@ export async function getPushPermissionStatus(): Promise<PushNotificationPermiss
     const { status } = await Notifications.getPermissionsAsync();
     return {
       granted: status === "granted",
-      canAskAgain: status === "undetermined",
+      canAskAgain: status === Notifications.PermissionStatus.UNDETERMINED,
       status,
     };
   } catch (error: any) {
@@ -66,7 +68,7 @@ export async function getPushPermissionStatus(): Promise<PushNotificationPermiss
     return {
       granted: false,
       canAskAgain: false,
-      status: "undetermined",
+      status: Notifications.PermissionStatus.UNDETERMINED,
     };
   }
 }
