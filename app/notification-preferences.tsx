@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Switch,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,7 +17,6 @@ import { useUser } from "../contexts/UserContext";
 import {
   getNotificationPreferences,
   createOrUpdateNotificationPreferences,
-  NotificationPreferences,
 } from "../lib/notification-preferences-service";
 import {
   requestPushPermissions,
@@ -25,7 +25,6 @@ import {
   clearPushToken,
 } from "../lib/push-notification-service";
 import Constants from "expo-constants";
-import { Platform } from "react-native";
 
 interface ToggleRowProps {
   icon: keyof typeof Ionicons.glyphMap;
@@ -85,7 +84,6 @@ export default function NotificationPreferencesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
   
   // Local state for toggles
@@ -101,14 +99,7 @@ export default function NotificationPreferencesScreen() {
     canAskAgain: boolean;
   } | null>(null);
 
-  // Load preferences when screen is focused
-  useFocusEffect(
-    useCallback(() => {
-      loadPreferences();
-    }, [userId])
-  );
-
-  const loadPreferences = async () => {
+  const loadPreferences = useCallback(async () => {
     if (!userId) {
       setIsLoading(false);
       return;
@@ -121,7 +112,6 @@ export default function NotificationPreferencesScreen() {
       const userPreferences = await getNotificationPreferences(userId);
       
       if (userPreferences) {
-        setPreferences(userPreferences);
         setOrderUpdatesEnabled(userPreferences.orderUpdatesEnabled);
         setPromotionsEnabled(userPreferences.promotionsEnabled);
         setPushEnabled(userPreferences.pushEnabled);
@@ -145,7 +135,14 @@ export default function NotificationPreferencesScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userId]);
+
+  // Load preferences when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      loadPreferences();
+    }, [loadPreferences])
+  );
 
   const handleOrderUpdatesToggle = (value: boolean) => {
     setOrderUpdatesEnabled(value);
@@ -282,10 +279,7 @@ export default function NotificationPreferencesScreen() {
       });
 
       // Reload preferences to get the actual updatedAt from server
-      const updatedPrefs = await getNotificationPreferences(userId);
-      if (updatedPrefs) {
-        setPreferences(updatedPrefs);
-      }
+      await getNotificationPreferences(userId);
       setHasChanges(false);
 
       // Show success confirmation

@@ -277,7 +277,7 @@ export default function CartScreen() {
         console.error("Error validating cart:", error);
       });
     }
-  }, []);
+  }, [cart.items.length, isLoading, validateCart]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

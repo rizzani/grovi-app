@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,10 +11,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { ProductFilters as ProductFiltersType } from "../lib/search-service";
-import { getAllCategories, getAllBrands, Category } from "../lib/search-service";
-import { getAddresses } from "../lib/profile-service";
-import { Address } from "../lib/profile-service";
+import { ProductFilters as ProductFiltersType, getAllCategories, getAllBrands, Category } from "../lib/search-service";
+import { getAddresses, Address } from "../lib/profile-service";
 
 interface ProductFiltersProps {
   filters: ProductFiltersType;
@@ -38,14 +36,7 @@ export default function ProductFilters({
   const [searchCategoryQuery, setSearchCategoryQuery] = useState("");
   const [searchBrandQuery, setSearchBrandQuery] = useState("");
 
-  // Load filter options when modal opens
-  useEffect(() => {
-    if (visible) {
-      loadFilterOptions();
-    }
-  }, [visible, userId]);
-
-  const loadFilterOptions = async () => {
+  const loadFilterOptions = useCallback(async () => {
     setIsLoading(true);
     try {
       const [categoriesData, brandsData] = await Promise.all([
@@ -69,7 +60,14 @@ export default function ProductFilters({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userId]);
+
+  // Load filter options when modal opens
+  useEffect(() => {
+    if (visible) {
+      loadFilterOptions();
+    }
+  }, [visible, loadFilterOptions]);
 
   const toggleBrand = (brand: string) => {
     const currentBrands = filters.brands || [];

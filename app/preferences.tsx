@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   Text,
   View,
@@ -15,7 +15,6 @@ import { useUser } from "../contexts/UserContext";
 import {
   getPreferences,
   createOrUpdatePreferences,
-  UserPreferences,
 } from "../lib/preferences-service";
 
 // Available dietary preferences
@@ -75,19 +74,11 @@ export default function PreferencesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [preferences, setPreferences] = useState<UserPreferences | null>(null);
   const [selectedDietary, setSelectedDietary] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
 
-  // Load preferences when screen is focused
-  useFocusEffect(
-    useCallback(() => {
-      loadPreferences();
-    }, [userId])
-  );
-
-  const loadPreferences = async () => {
+  const loadPreferences = useCallback(async () => {
     if (!userId) {
       setIsLoading(false);
       return;
@@ -100,7 +91,6 @@ export default function PreferencesScreen() {
       const userPreferences = await getPreferences(userId);
       
       if (userPreferences) {
-        setPreferences(userPreferences);
         setSelectedDietary(userPreferences.dietaryPreferences || []);
         setSelectedCategories(userPreferences.categoryPreferences || []);
       } else {
@@ -114,7 +104,14 @@ export default function PreferencesScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userId]);
+
+  // Load preferences when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      loadPreferences();
+    }, [loadPreferences])
+  );
 
   const toggleDietary = (option: string) => {
     setSelectedDietary((prev) => {
@@ -152,12 +149,8 @@ export default function PreferencesScreen() {
         categoryPreferences: selectedCategories,
       });
 
-      // Update local state (createdAt and updatedAt are managed by Appwrite)
-      // Reload preferences to get the actual updatedAt from server
-      const updatedPrefs = await getPreferences(userId);
-      if (updatedPrefs) {
-        setPreferences(updatedPrefs);
-      }
+      // Reload preferences to preserve the existing post-save refresh.
+      await getPreferences(userId);
       setHasChanges(false);
 
       // Show success confirmation

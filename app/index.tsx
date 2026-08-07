@@ -13,7 +13,6 @@ SplashScreen.preventAutoHideAsync();
 export default function WelcomeScreen() {
   const router = useRouter();
   const [showSplash, setShowSplash] = useState(true);
-  const [isNewUser, setIsNewUser] = useState(false);
 
   useEffect(() => {
     const bootstrapAuth = async () => {
@@ -42,9 +41,8 @@ export default function WelcomeScreen() {
         }
         
         // New user - show welcome screen
-        setIsNewUser(true);
         setShowSplash(false);
-      } catch (error) {
+      } catch {
         // On error, hide splash and check if user has logged in before
         await SplashScreen.hideAsync();
         const hasLoggedIn = await hasLoggedInBefore();
@@ -52,14 +50,13 @@ export default function WelcomeScreen() {
           router.replace("/sign-in");
         } else {
           // New user - show welcome screen
-          setIsNewUser(true);
           setShowSplash(false);
         }
       }
     };
 
     bootstrapAuth();
-  }, []);
+  }, [router]);
 
   // Show splash screen while checking
   if (showSplash) {

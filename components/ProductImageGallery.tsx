@@ -79,8 +79,6 @@ export default function ProductImageGallery({
   
   // Track pinch gesture state
   const pinchStartScale = useRef(1);
-  const pinchFocalX = useRef(0);
-  const pinchFocalY = useRef(0);
   
   // Track pan gesture state
   const panStartX = useRef(0);

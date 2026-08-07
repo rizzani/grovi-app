@@ -77,7 +77,7 @@ export default function SignIn() {
       // Success - refresh user context and navigate to home
       await refreshSession();
       router.replace("/home");
-    } catch (err: any) {
+    } catch {
       setError("Invalid email or password");
       setIsLoading(false);
     }
@@ -94,7 +94,7 @@ export default function SignIn() {
     try {
       await sendPasswordReset(email.trim());
       // Success - silently send reset (non-enumerating, no user feedback)
-    } catch (err: any) {
+    } catch {
       // Silently handle error (non-enumerating)
     }
   };

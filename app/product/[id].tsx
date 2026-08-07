@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -110,19 +110,15 @@ export default function ProductDetailScreen() {
   const [error, setError] = useState<string | null>(null);
   const [product, setProduct] = useState<Product | null>(null);
   const [storeProducts, setStoreProducts] = useState<
-    Array<{
+    {
       storeProduct: StoreLocationProduct;
       storeLocation: StoreLocation;
-    }>
+    }[]
   >([]);
   const [category, setCategory] = useState<Category | null>(null);
   const [addingToCart, setAddingToCart] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadProductDetails();
-  }, [id]);
-
-  const loadProductDetails = async () => {
+  const loadProductDetails = useCallback(async () => {
     if (!id) {
       setError("Invalid product ID");
       setLoading(false);
@@ -250,7 +246,11 @@ export default function ProductDetailScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    loadProductDetails();
+  }, [loadProductDetails]);
 
   const handleExternalLink = async (url: string) => {
     try {

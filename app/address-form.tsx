@@ -66,16 +66,6 @@ export default function AddressFormScreen() {
   // Focus states
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  // Load address if editing
-  useEffect(() => {
-    if (isEditing && userId && addressId) {
-      loadAddress();
-    } else if (!isEditing && user?.phone) {
-      // Pre-fill with main number option checked
-      setUseMainNumber(true);
-    }
-  }, [isEditing, userId, addressId, user?.phone]);
-
   useEffect(() => {
     if (typeof params.location !== "string") return;
     try {
@@ -110,7 +100,7 @@ export default function AddressFormScreen() {
     }
   }, [useMainNumber, user?.phone]);
 
-  const loadAddress = async () => {
+  const loadAddress = useCallback(async () => {
     if (!userId || !addressId) return;
 
     try {
@@ -143,7 +133,17 @@ export default function AddressFormScreen() {
     } finally {
       setIsLoadingAddress(false);
     }
-  };
+  }, [addressId, router, user?.phone, userId]);
+
+  // Load address if editing
+  useEffect(() => {
+    if (isEditing && userId && addressId) {
+      loadAddress();
+    } else if (!isEditing && user?.phone) {
+      // Pre-fill with main number option checked
+      setUseMainNumber(true);
+    }
+  }, [isEditing, userId, addressId, user?.phone, loadAddress]);
 
   const validateForm = (): boolean => {
     let isValid = true;

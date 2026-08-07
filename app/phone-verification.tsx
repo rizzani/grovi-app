@@ -65,14 +65,14 @@ export default function PhoneVerification() {
               setStep("phone");
               setPhoneError(result.error || "Failed to send verification code");
             }
-          } catch (error) {
+          } catch {
             setStep("phone");
             setPhoneError("Failed to send verification code");
           } finally {
             setIsLoading(false);
           }
         }
-      } catch (error) {
+      } catch {
         // User not authenticated or other error - stay on phone input step
         // This is fine, user will enter phone manually
       }
@@ -171,7 +171,7 @@ export default function PhoneVerification() {
       setStep("otp");
       setResendCooldown(60); // 60 second cooldown
       setIsLoading(false);
-    } catch (error: any) {
+    } catch (error) {
       setPhoneError("An unexpected error occurred. Please try again.");
       console.error("Phone verification error:", error);
       setIsLoading(false);
@@ -263,7 +263,7 @@ export default function PhoneVerification() {
       // Success - refresh user context and navigate to home
       await refreshSession();
       router.replace("/home");
-    } catch (error: any) {
+    } catch (error) {
       setOtpError("An unexpected error occurred. Please try again.");
       console.error("OTP verification error:", error);
       setIsLoading(false);

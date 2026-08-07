@@ -21,7 +21,6 @@ import {
   validateConfirmPassword,
   getStrengthColor,
   getStrengthText,
-  type PasswordStrength,
 } from "../lib/password-validation";
 import { signUp } from "../lib/auth-service";
 import { useUser } from "../contexts/UserContext";

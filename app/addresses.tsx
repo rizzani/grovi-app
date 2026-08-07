@@ -59,7 +59,6 @@ export default function AddressesScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadAddresses = useCallback(async () => {
     if (!userId) return;
@@ -105,14 +104,11 @@ export default function AddressesScreen() {
           text: "Delete",
           style: "destructive",
           onPress: async () => {
-            setDeletingId(address.$id);
             try {
               await deleteAddress(address.$id);
               await loadAddresses();
             } catch (err: any) {
               Alert.alert("Error", err.message || "Failed to delete address");
-            } finally {
-              setDeletingId(null);
             }
           },
         },

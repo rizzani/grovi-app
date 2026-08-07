@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Text, View, StyleSheet, ScrollView, FlatList, ActivityIndicator, TouchableOpacity, Animated, Alert } from "react-native";
 import { Image } from "expo-image";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -25,7 +25,6 @@ export default function SearchScreen() {
     setFilters,
     sortMode,
     setSortMode,
-    clearFiltersAndSort 
   } = useSearch();
   const { userId } = useUser();
   const [searchQuery, setSearchQuery] = useState(params.q || "");

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import MapView, { Region } from "react-native-maps";
 import { Ionicons } from "@expo/vector-icons";
@@ -10,16 +10,16 @@ const DEFAULT_REGION: Region = { latitude: 18.1096, longitude: -77.2975, latitud
 export function DeliveryLocationPicker({ initialLocation, onConfirm }: Props) {
   const [location, setLocation] = useState<GeocodedLocation | null>(null);
   const [region, setRegion] = useState<Region>({ ...DEFAULT_REGION, ...(initialLocation ?? {}) });
+  const regionRef = useRef(region);
   const mapRef = useRef<MapView | null>(null);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { if (initialLocation) void selectCoordinates(initialLocation, false); }, [initialLocation]);
-
-  async function selectCoordinates(coordinates: Coordinates, moveMap = true) {
+  const selectCoordinates = useCallback(async (coordinates: Coordinates, moveMap = true) => {
     if (moveMap) {
-      const nextRegion = { ...region, ...coordinates };
+      const nextRegion = { ...regionRef.current, ...coordinates };
+      regionRef.current = nextRegion;
       setRegion(nextRegion);
       mapRef.current?.animateToRegion(nextRegion, 300);
     }
@@ -27,7 +27,9 @@ export function DeliveryLocationPicker({ initialLocation, onConfirm }: Props) {
     try { const result = await reverseGeocode(coordinates); setLocation(result); }
     catch (caught) { setError(caught instanceof Error ? caught.message : "Could not identify this location."); }
     finally { setBusy(false); }
-  }
+  }, []);
+
+  useEffect(() => { if (initialLocation) void selectCoordinates(initialLocation, false); }, [initialLocation, selectCoordinates]);
 
   async function search() {
     setBusy(true); setError(null);
@@ -35,7 +37,8 @@ export function DeliveryLocationPicker({ initialLocation, onConfirm }: Props) {
       const results = await geocodeAddress(query);
       if (!results[0]) throw new Error("No matching address found. Try adding a community or parish.");
       setLocation(results[0]);
-      const nextRegion = { ...region, latitude: results[0].latitude, longitude: results[0].longitude };
+      const nextRegion = { ...regionRef.current, latitude: results[0].latitude, longitude: results[0].longitude };
+      regionRef.current = nextRegion;
       setRegion(nextRegion);
       mapRef.current?.animateToRegion(nextRegion, 300);
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Address search failed."); }
@@ -49,6 +52,7 @@ export function DeliveryLocationPicker({ initialLocation, onConfirm }: Props) {
   }
 
   function handleMapSettled(nextRegion: Region) {
+    regionRef.current = nextRegion;
     setRegion(nextRegion);
     // This is a user map movement, so reverse-geocode without animating the
     // camera again. That prevents a map/reverse-geocode feedback loop.
