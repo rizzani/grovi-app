@@ -1,5 +1,5 @@
 import { Client, Databases, ID, Permission, Role } from "appwrite";
-import { Client as AdminClient, Databases as AdminDatabases } from "node-appwrite";
+import { Client as AdminClient, Databases as AdminDatabases, Query as AdminQuery } from "node-appwrite";
 import * as dotenv from "dotenv";
 import * as path from "path";
 import * as fs from "fs";
@@ -170,6 +170,7 @@ const orderCollectionSchemas: CollectionSchema[] = [
       { key: "idx_orderNumber", type: "unique", attributes: ["orderNumber"], orders: ["ASC"] },
       { key: "idx_userId", type: "key", attributes: ["userId"], orders: ["ASC"] },
       { key: "idx_user_placed", type: "key", attributes: ["userId", "placedAt"], orders: ["ASC", "DESC"] },
+      { key: "idx_user_cart_revision", type: "key", attributes: ["userId", "cartUpdatedAt", "status"], orders: ["ASC", "ASC", "ASC"] },
       { key: "idx_status", type: "key", attributes: ["status"], orders: ["ASC"] },
     ],
   },
@@ -1785,7 +1786,84 @@ async function setupDatabase() {
       console.error(`  ✗ Failed to update permissions: ${error.message}`);
     }
 
-    // Step 37: Create carts collection
+    // Step 37: Create analytics_events collection. Anonymous clients may create
+    // events, but the collection has no read/update/delete permissions for clients.
+    const analyticsEventsCollectionId = "analytics_events";
+    try {
+      await appwriteRequest("GET", `/databases/${databaseId}/collections/${analyticsEventsCollectionId}`);
+      console.log(`✓ Collection '${analyticsEventsCollectionId}' already exists`);
+    } catch (error: any) {
+      if (error.code !== 404) throw error;
+      await appwriteRequest("POST", `/databases/${databaseId}/collections`, {
+        collectionId: analyticsEventsCollectionId,
+        name: "Analytics Events",
+        // Clients may append events, but cannot read or mutate documents.
+        permissions: [Permission.create(Role.any())],
+        documentSecurity: true,
+      });
+      console.log(`✓ Created collection '${analyticsEventsCollectionId}'`);
+    }
+
+    const analyticsStringAttributes = [
+      { key: "eventName", size: 40, required: true },
+      { key: "userId", size: 36, required: false },
+      { key: "sessionId", size: 36, required: true },
+      { key: "propertiesJson", size: 10000, required: true },
+      { key: "platform", size: 20, required: true },
+      { key: "appVersion", size: 40, required: true },
+      { key: "createdAt", size: 40, required: true },
+    ];
+    for (const attr of analyticsStringAttributes) {
+      try {
+        await appwriteRequest("POST", `/databases/${databaseId}/collections/${analyticsEventsCollectionId}/attributes/string`, attr);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      } catch (error: any) {
+        if (error.code !== 409) console.warn(`⚠️ Could not create analytics attribute '${attr.key}': ${error.message}`);
+      }
+    }
+    const analyticsIndexes = [
+      { key: "idx_eventName", attributes: ["eventName"], orders: ["ASC"] },
+      { key: "idx_userId", attributes: ["userId"], orders: ["ASC"] },
+      { key: "idx_createdAt", attributes: ["createdAt"], orders: ["DESC"] },
+      { key: "idx_event_created", attributes: ["eventName", "createdAt"], orders: ["ASC", "DESC"] },
+    ];
+    for (const index of analyticsIndexes) {
+      try {
+        await appwriteRequest("POST", `/databases/${databaseId}/collections/${analyticsEventsCollectionId}/indexes`, { type: "key", ...index });
+      } catch (error: any) {
+        if (error.code !== 409) console.warn(`⚠️ Could not create analytics index '${index.key}': ${error.message}`);
+      }
+    }
+    await appwriteRequest("PUT", `/databases/${databaseId}/collections/${analyticsEventsCollectionId}`, {
+      name: "Analytics Events",
+      // Keep collection access append-only for anonymous MVP tracking.
+      permissions: [Permission.create(Role.any())],
+      documentSecurity: true,
+    });
+
+    // Existing documents retain their own ACLs when collection permissions change.
+    // Clear legacy document permissions so previously-created events are private too.
+    let analyticsOffset = 0;
+    while (true) {
+      const page = await adminDatabases.listDocuments(
+        databaseId,
+        analyticsEventsCollectionId,
+        [AdminQuery.limit(100), AdminQuery.offset(analyticsOffset)]
+      );
+      for (const document of page.documents) {
+        await adminDatabases.updateDocument(
+          databaseId,
+          analyticsEventsCollectionId,
+          document.$id,
+          {},
+          []
+        );
+      }
+      analyticsOffset += page.documents.length;
+      if (analyticsOffset >= page.total || page.documents.length === 0) break;
+    }
+
+    // Step 38: Create carts collection
     const cartsCollectionId = "carts";
     let cartsCollection;
     try {

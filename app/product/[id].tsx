@@ -17,6 +17,7 @@ import ProductImageGallery from "../../components/ProductImageGallery";
 import { databases, databaseId } from "../../lib/appwrite-client";
 import { Query } from "appwrite";
 import { useCart } from "../../contexts/CartContext";
+import { AnalyticsEvent, trackEvent } from "../../lib/analytics";
 
 interface ProductImageObject {
   fileId: string;
@@ -156,6 +157,10 @@ export default function ProductDetailScreen() {
       };
       
       setProduct(productData);
+      void trackEvent(AnalyticsEvent.ProductViewed, {
+        productId: productData.$id,
+        categoryId: productData.category_leaf_id,
+      });
 
       // Fetch store location products
       const storeProductsResponse = await databases.listDocuments(

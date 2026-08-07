@@ -17,7 +17,7 @@ function assertSame(actual, expected, message) {
   }
 }
 
-function responseFor(order, replay) {
+function responseFor(order, replay, cartReconciliation = "unknown") {
   if (order.status !== "placed") {
     throw new CheckoutError("ORDER_CREATION_FAILED", "Order creation has not completed.", 500, undefined, true);
   }
@@ -37,8 +37,17 @@ function responseFor(order, replay) {
       totalJmdCents: order.totalJmdCents,
       consumedRevision: order.cartUpdatedAt,
       idempotentReplay: replay,
+      cartReconciliation,
     },
   };
+}
+
+async function reconcileCart(repo, userId, revision) {
+  try { return await repo.clearCartIfRevisionMatches(userId, revision); }
+  catch (error) {
+    console.error("[Checkout] Appwrite cart reconciliation failed", { userId, cartRevision: revision, error });
+    return "failed";
+  }
 }
 
 async function existingOutcome(repo, clientRequestId, fingerprint) {
@@ -150,7 +159,10 @@ export async function placeOrder({ userId, input, repo, now = () => new Date().t
   const request = validateRequest(input);
   const fingerprint = requestFingerprint(userId, request);
   const prior = await existingOutcome(repo, request.clientRequestId, fingerprint);
-  if (prior && !prior.existing) return prior;
+  if (prior && !prior.existing) {
+    const cartReconciliation = await reconcileCart(repo, userId, prior.data.consumedRevision);
+    return { ...prior, data: { ...prior.data, cartReconciliation } };
+  }
 
   const address = await repo.getAddress(request.addressId);
   if (!address) throw new CheckoutError("ADDRESS_NOT_FOUND", "The selected address was not found.", 404);
@@ -169,6 +181,16 @@ export async function placeOrder({ userId, input, repo, now = () => new Date().t
       requestedRevision: request.cartRevision,
       currentRevision: cartRevision,
     });
+  }
+  const priorCartOrder = await repo.findPlacedOrderByCartRevision(userId, cartRevision);
+  if (priorCartOrder) {
+    const cartReconciliation = await reconcileCart(repo, userId, cartRevision);
+    console.warn("[Checkout] Reusing order for an already-consumed cart revision", {
+      orderId: priorCartOrder.$id,
+      cartRevision,
+      requestId: request.clientRequestId,
+    });
+    return responseFor(priorCartOrder, true, cartReconciliation);
   }
   const rawItems = parseCart(cart);
   const items = await priceCart(repo, rawItems, maxQuantity);
@@ -267,5 +289,6 @@ export async function placeOrder({ userId, input, repo, now = () => new Date().t
     timestamp,
   }, userId, assertSame);
   parent = await repo.updateOrder(orderId, { status: "placed" });
-  return responseFor(parent, Boolean(prior?.existing));
+  const cartReconciliation = await reconcileCart(repo, userId, cartRevision);
+  return responseFor(parent, Boolean(prior?.existing), cartReconciliation);
 }

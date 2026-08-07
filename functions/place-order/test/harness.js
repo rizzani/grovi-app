@@ -14,12 +14,27 @@ export class MemoryRepository {
     this.orderItems = new Map();
     this.audits = new Map();
     this.failNextOrderItemCreate = false;
+    this.failCartClear = false;
   }
 
   isConflict(error) { return error?.code === 409; }
   async findOrderByIdempotencyKey(key) { return [...this.orders.values()].find((order) => order.idempotencyKey === key) || null; }
+  async findPlacedOrderByCartRevision(userId, cartRevision) {
+    return [...this.orders.values()].find((order) => order.userId === userId && order.cartUpdatedAt === cartRevision && order.status === "placed") || null;
+  }
   async getAddress(id) { return this.addresses.get(id) || null; }
   async getCart(userId) { return this.carts.get(userId) || null; }
+  async clearCartIfRevisionMatches(userId, consumedRevision) {
+    if (this.failCartClear) throw new Error("Injected cart clear failure");
+    const cart = await this.getCart(userId);
+    if (!cart || cart.updatedAt !== consumedRevision) return "revision_changed";
+    cart.items = "[]";
+    cart.totalItems = 0;
+    cart.totalPriceJmdCents = 0;
+    cart.storeIds = "[]";
+    cart.updatedAt = "2026-07-20T13:00:00.000Z";
+    return "cleared";
+  }
   async getInventory(productId, storeId) { return this.inventory.get(`${productId}:${storeId}`) || null; }
   async getProduct(id) { return this.products.get(id) || null; }
   async getStore(id) { return this.stores.get(id) || null; }

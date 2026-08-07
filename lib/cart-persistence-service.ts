@@ -37,11 +37,18 @@ export async function getServerCart(userId: string): Promise<Cart | null> {
     const result = await databases.listDocuments(
       databaseId,
       CARTS_COLLECTION_ID,
-      [Query.equal("userId", userId), Query.limit(1)]
+      [Query.equal("userId", userId), Query.limit(2)]
     );
+
+    if (result.documents.length > 1) throw new Error(`Multiple Appwrite cart documents found for user ${userId}.`);
 
     if (result.documents.length > 0) {
       const cartDoc = result.documents[0];
+      if (__DEV__) console.log("[CartPersistence] Appwrite cart loaded", {
+        cartId: cartDoc.$id,
+        revision: cartDoc.updatedAt,
+        itemCount: typeof cartDoc.items === "string" ? (() => { try { return JSON.parse(cartDoc.items).length; } catch { return "invalid"; } })() : Array.isArray(cartDoc.items) ? cartDoc.items.length : 0,
+      });
       // Parse JSON strings for items and storeIds
       let items: CartItem[] = [];
       let storeIds: string[] = [];
@@ -77,7 +84,7 @@ export async function getServerCart(userId: string): Promise<Cart | null> {
     return null;
   } catch (error) {
     console.error("Error fetching cart from server:", error);
-    return null;
+    throw error;
   }
 }
 
@@ -94,15 +101,53 @@ export async function clearServerCartIfRevisionMatches(
   userId: string,
   consumedRevision: string
 ): Promise<"cleared" | "revision_changed"> {
-  const current = await getServerCart(userId);
-  if (!current || current.updatedAt !== consumedRevision) return "revision_changed";
+  const result = await databases.listDocuments(
+    databaseId,
+    CARTS_COLLECTION_ID,
+    [Query.equal("userId", userId), Query.limit(2)]
+  );
+  if (result.documents.length === 0) return "revision_changed";
+  if (result.documents.length > 1) {
+    throw new Error(`Multiple Appwrite cart documents found for user ${userId}; refusing to clear an ambiguous cart.`);
+  }
 
-  await saveServerCart(userId, {
+  const cartDocument = result.documents[0];
+  const currentRevision = String(cartDocument.updatedAt || "");
+  if (currentRevision !== consumedRevision) {
+    if (__DEV__) console.warn("[CartPersistence] Cart revision changed before reconciliation", {
+      cartId: cartDocument.$id,
+      consumedRevision,
+      currentRevision,
+    });
+    return "revision_changed";
+  }
+
+  const emptyCart = {
+    userId,
     items: [],
     totalItems: 0,
     totalPriceJmdCents: 0,
     storeIds: [],
     updatedAt: new Date().toISOString(),
+  };
+  await databases.updateDocument(
+    databaseId,
+    CARTS_COLLECTION_ID,
+    cartDocument.$id,
+    { ...emptyCart, items: "[]", storeIds: "[]" },
+    [Permission.read(Role.user(userId)), Permission.write(Role.user(userId))]
+  );
+  const verified = await databases.getDocument(databaseId, CARTS_COLLECTION_ID, cartDocument.$id);
+  let verifiedItems: unknown[] = [];
+  try { verifiedItems = typeof verified.items === "string" ? JSON.parse(verified.items) : (verified.items as unknown[] || []); }
+  catch (error) { throw new Error(`Cart ${cartDocument.$id} was updated but could not be verified as empty: ${String(error)}`); }
+  if (!Array.isArray(verifiedItems) || verifiedItems.length > 0) {
+    throw new Error(`Cart ${cartDocument.$id} was updated but still contains items after reconciliation.`);
+  }
+  if (__DEV__) console.log("[CartPersistence] Appwrite cart cleared and verified", {
+    cartId: cartDocument.$id,
+    consumedRevision,
+    newRevision: verified.updatedAt,
   });
   return "cleared";
 }
@@ -116,8 +161,9 @@ export async function saveServerCart(userId: string, cart: Cart): Promise<void> 
     const existing = await databases.listDocuments(
       databaseId,
       CARTS_COLLECTION_ID,
-      [Query.equal("userId", userId), Query.limit(1)]
+      [Query.equal("userId", userId), Query.limit(2)]
     );
+    if (existing.documents.length > 1) throw new Error(`Multiple Appwrite cart documents found for user ${userId}; refusing to overwrite an ambiguous cart.`);
 
     // Serialize arrays to JSON strings for Appwrite storage
     // Handle empty arrays by storing as empty JSON array string
@@ -143,11 +189,11 @@ export async function saveServerCart(userId: string, cart: Cart): Promise<void> 
         ]
       );
       if (__DEV__) {
-        console.log("[CartPersistence] Cart updated successfully for user:", userId);
+        console.log("[CartPersistence] Cart updated successfully", { cartId: existing.documents[0].$id, userId, revision: cartData.updatedAt, itemCount: cart.items.length });
       }
     } else {
       // Create new cart
-      await databases.createDocument(
+      const created = await databases.createDocument(
         databaseId,
         CARTS_COLLECTION_ID,
         ID.unique(),
@@ -158,7 +204,7 @@ export async function saveServerCart(userId: string, cart: Cart): Promise<void> 
         ]
       );
       if (__DEV__) {
-        console.log("[CartPersistence] Cart created successfully for user:", userId);
+        console.log("[CartPersistence] Cart created successfully", { cartId: created.$id, userId, revision: cartData.updatedAt, itemCount: cart.items.length });
       }
     }
   } catch (error: any) {

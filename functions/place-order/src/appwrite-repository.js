@@ -40,6 +40,37 @@ export class AppwriteRepository {
     return result.documents[0] || null;
   }
 
+  async findPlacedOrderByCartRevision(userId, cartRevision) {
+    const result = await this.db.listDocuments(this.databaseId, this.collections.orders, [
+      Query.equal("userId", userId), Query.equal("cartUpdatedAt", cartRevision), Query.equal("status", "placed"), Query.limit(2),
+    ]);
+    if (result.documents.length > 1) throw new Error("Multiple placed orders found for the same cart revision");
+    return result.documents[0] || null;
+  }
+
+  async clearCartIfRevisionMatches(userId, consumedRevision) {
+    const cart = await this.getCart(userId);
+    if (!cart || String(cart.updatedAt || "") !== consumedRevision) return "revision_changed";
+    let updated;
+    try {
+      updated = await this.db.updateDocument(
+        this.databaseId,
+        this.collections.carts,
+        cart.$id,
+        { userId, items: "[]", totalItems: 0, totalPriceJmdCents: 0, storeIds: "[]", updatedAt: new Date().toISOString() },
+        this.permissions(userId)
+      );
+    } catch (error) {
+      throw new Error(`Appwrite cart update failed for cart ${cart.$id}: ${error.message}`);
+    }
+    let items = [];
+    try { items = typeof updated.items === "string" ? JSON.parse(updated.items) : (updated.items || []); }
+    catch (error) { throw new Error(`Cart ${cart.$id} clear verification failed: ${error.message}`); }
+    if (!Array.isArray(items) || items.length > 0) throw new Error(`Cart ${cart.$id} remained non-empty after update.`);
+    console.log("[Checkout] Appwrite cart cleared", { cartId: cart.$id, consumedRevision, newRevision: updated.updatedAt });
+    return "cleared";
+  }
+
   async getInventory(productId, storeId) {
     const result = await this.db.listDocuments(this.databaseId, this.collections.inventory, [
       Query.equal("product_id", productId), Query.equal("store_location_id", storeId), Query.limit(2),

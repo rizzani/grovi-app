@@ -29,6 +29,7 @@ export interface CheckoutSuccessData {
   totalJmdCents: number;
   consumedRevision: string;
   idempotentReplay: boolean;
+  cartReconciliation?: "cleared" | "revision_changed" | "failed" | "unknown";
 }
 
 export interface CheckoutSuccessResponse { ok: true; data: CheckoutSuccessData }
@@ -53,6 +54,8 @@ export interface CheckoutAttempt {
   state: CheckoutAttemptState;
   createdAt: string;
   orderId?: string;
+  successData?: CheckoutSuccessData;
+  checkoutStartedTracked?: boolean;
 }
 
 export class CheckoutError extends Error {
@@ -119,7 +122,21 @@ export async function getOrCreateCheckoutAttempt(
   return attempt;
 }
 
+export async function markCheckoutStarted(attempt: CheckoutAttempt): Promise<boolean> {
+  if (attempt.checkoutStartedTracked) return false;
+  await persistCheckoutAttempt({ ...attempt, checkoutStartedTracked: true });
+  return true;
+}
+
 export async function executeCheckout(attempt: CheckoutAttempt): Promise<CheckoutSuccessData> {
+  if (attempt.state === "succeeded" && attempt.successData) {
+    if (__DEV__) console.log("[Checkout] Reusing completed checkout attempt", {
+      checkoutAttemptId: attempt.request.clientRequestId,
+      orderId: attempt.orderId,
+      cartRevision: attempt.request.cartRevision,
+    });
+    return { ...attempt.successData, idempotentReplay: true };
+  }
   await persistCheckoutAttempt({ ...attempt, state: "submitting" });
   try {
     const execution = await functions.createExecution({
@@ -157,7 +174,18 @@ export async function executeCheckout(attempt: CheckoutAttempt): Promise<Checkou
         response.error.requestId
       );
     }
-    await persistCheckoutAttempt({ ...attempt, state: "succeeded", orderId: response.data.orderId });
+    if (__DEV__) console.log("[Checkout] Appwrite order confirmed", {
+      checkoutAttemptId: attempt.request.clientRequestId,
+      orderId: response.data.orderId,
+      cartRevision: response.data.consumedRevision,
+      cartReconciliation: response.data.cartReconciliation,
+    });
+    await persistCheckoutAttempt({
+      ...attempt,
+      state: "succeeded",
+      orderId: response.data.orderId,
+      successData: response.data,
+    });
     return response.data;
   } catch (error) {
     if (error instanceof CheckoutError && !error.retryable) throw error;

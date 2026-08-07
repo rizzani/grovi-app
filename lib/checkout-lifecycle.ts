@@ -8,11 +8,18 @@ export function materialInputsMatch(left: MaterialCheckoutInputs, right: Materia
   return left.addressId === right.addressId && left.cartRevision === right.cartRevision && left.paymentMethod === right.paymentMethod;
 }
 
+export function completedAttemptMatchesCart(
+  attempt: { state: string; request: Pick<MaterialCheckoutInputs, "cartRevision"> } | null,
+  cartRevision: string
+): boolean {
+  return attempt?.state === "succeeded" && attempt.request.cartRevision === cartRevision;
+}
+
 export function reusableAttempt<T extends { state: string; request: MaterialCheckoutInputs }>(
   persisted: T | null,
   inputs: MaterialCheckoutInputs
 ): T | null {
-  return persisted && persisted.state !== "succeeded" && materialInputsMatch(persisted.request, inputs) ? persisted : null;
+  return persisted && materialInputsMatch(persisted.request, inputs) ? persisted : null;
 }
 
 export class SubmissionGate {

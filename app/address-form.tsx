@@ -27,6 +27,7 @@ import { validatePhoneNumber, normalizePhoneNumber } from "../lib/phone-validati
 import { JAMAICA_PARISHES, isValidJamaicaParish } from "../lib/jamaica-parishes";
 import { isValidCoordinates, GeocodedLocation } from "../lib/location-utils";
 import { consumePendingLocation } from "../lib/location-selection";
+import { AnalyticsEvent, trackEvent } from "../lib/analytics";
 
 export default function AddressFormScreen() {
   const router = useRouter();
@@ -261,6 +262,7 @@ export default function AddressFormScreen() {
         };
 
         await updateAddress(updateParams);
+        void trackEvent(AnalyticsEvent.LocationSelected, { deliveryArea: parish.trim() }, userId);
         Alert.alert("Success", "Address updated successfully", [
           { text: "OK", onPress: () => router.back() },
         ]);
@@ -284,6 +286,7 @@ export default function AddressFormScreen() {
         };
 
         await createAddress(createParams);
+        void trackEvent(AnalyticsEvent.LocationSelected, { deliveryArea: parish.trim() }, userId);
         Alert.alert("Success", "Address added successfully", [
           { text: "OK", onPress: () => router.back() },
         ]);

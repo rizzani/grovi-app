@@ -38,6 +38,10 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npx expo start
    ```
 
+## MVP analytics
+
+The database setup also creates the `analytics_events` collection used by the fail-safe client analytics layer. It requires no environment variables beyond the existing Appwrite values. Run `npm run test:analytics` to test the event helpers. See [docs/ANALYTICS_MVP.md](docs/ANALYTICS_MVP.md) for collection permissions, indexes, supported events, privacy boundaries, and MVP limitations.
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)

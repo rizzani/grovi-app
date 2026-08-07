@@ -15,9 +15,10 @@ import { useCheckout } from "../../contexts/CheckoutContext";
 import { useUser } from "../../contexts/UserContext";
 import { CartItem, getCheckoutCartSnapshot } from "../../lib/cart-service";
 import { Address, getAddresses } from "../../lib/profile-service";
-import { cancelCheckoutAttempt, CheckoutError, executeCheckout, getOrCreateCheckoutAttempt, loadCheckoutAttempt } from "../../lib/checkout-service";
-import { finishSuccessfulCheckout, SubmissionGate } from "../../lib/checkout-lifecycle";
+import { cancelCheckoutAttempt, CheckoutError, executeCheckout, getOrCreateCheckoutAttempt, loadCheckoutAttempt, markCheckoutStarted } from "../../lib/checkout-service";
+import { completedAttemptMatchesCart, finishSuccessfulCheckout, SubmissionGate } from "../../lib/checkout-lifecycle";
 import { isValidCoordinates } from "../../lib/location-utils";
+import { AnalyticsEvent, trackEvent } from "../../lib/analytics";
 
 interface StoreGroup {
   storeName: string;
@@ -43,6 +44,7 @@ export default function CheckoutReviewScreen() {
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submissionRef = useRef(false);
+  const successHandledRef = useRef(false);
   const submissionGate = useRef(new SubmissionGate());
 
   const loadAddresses = useCallback(async () => {
@@ -71,8 +73,23 @@ export default function CheckoutReviewScreen() {
     useCallback(() => {
       setIsLoading(true);
       void loadAddresses();
-      if (userId) loadCheckoutAttempt(userId).then((attempt) => {
-        if (attempt?.state === "succeeded" && attempt.orderId) router.replace(`/order-confirmation?orderId=${encodeURIComponent(attempt.orderId)}` as Href);
+      if (userId) loadCheckoutAttempt(userId).then(async (attempt) => {
+        if (!attempt?.orderId || attempt.state !== "succeeded") return;
+        try {
+          const snapshot = await getCheckoutCartSnapshot(userId);
+          if (completedAttemptMatchesCart(attempt, snapshot.updatedAt)) {
+            router.replace(`/order-confirmation?orderId=${encodeURIComponent(attempt.orderId)}` as Href);
+          } else if (__DEV__) {
+            console.log("[Checkout] Completed attempt belongs to an older cart revision; continuing checkout", {
+              checkoutAttemptId: attempt.request.clientRequestId,
+              orderId: attempt.orderId,
+              completedCartRevision: attempt.request.cartRevision,
+              currentCartRevision: snapshot.updatedAt,
+            });
+          }
+        } catch (error) {
+          console.warn("[Checkout] Could not verify completed attempt against the current cart; staying in checkout.", error);
+        }
       }).catch(() => undefined);
     }, [loadAddresses, router, userId])
   );
@@ -95,9 +112,38 @@ export default function CheckoutReviewScreen() {
       const snapshot = await getCheckoutCartSnapshot(userId);
       if (snapshot.items.length === 0) { router.replace("/cart"); return; }
       const attempt = await getOrCreateCheckoutAttempt(userId, selectedAddress.$id, snapshot.updatedAt);
+      if (attempt.state !== "succeeded" && await markCheckoutStarted(attempt)) {
+        void trackEvent(AnalyticsEvent.CheckoutStarted, {
+          cartItemCount: snapshot.items.reduce((sum, item) => sum + item.quantity, 0),
+          cartValue: snapshot.items.reduce((sum, item) => sum + item.priceJmdCents * item.quantity, 0),
+          storeCount: new Set(snapshot.items.map((item) => item.storeId)).size,
+        }, userId);
+      }
       const result = await executeCheckout(attempt);
+      if (successHandledRef.current) return;
+      successHandledRef.current = true;
+      // trackEvent is fail-safe (it catches its own Appwrite errors), so awaiting
+      // it preserves the business sequence without making analytics a dependency.
+      if (!result.idempotentReplay) try {
+        await trackEvent(AnalyticsEvent.OrderPlaced, {
+          orderId: result.orderId, itemCount: result.itemCount, storeCount: result.storeCount,
+          orderValue: result.totalJmdCents, deliveryFee: result.deliveryFeeJmdCents,
+        }, userId);
+      } catch (analyticsError) {
+        // Keep the checkout completion path independent of analytics providers.
+        if (__DEV__) console.warn("[Checkout] order_placed analytics failed", analyticsError);
+      }
       await finishSuccessfulCheckout(
-        () => reconcilePurchasedCart(result.consumedRevision),
+        async () => {
+          const reconciliation = await reconcilePurchasedCart(result.consumedRevision);
+          if (__DEV__) console.log("[Checkout] Cart reconciliation result", {
+            checkoutAttemptId: attempt.request.clientRequestId,
+            orderId: result.orderId,
+            cartRevision: result.consumedRevision,
+            reconciliation,
+          });
+          return reconciliation;
+        },
         () => router.replace(`/order-confirmation?orderId=${encodeURIComponent(result.orderId)}` as Href),
         (clearError) => console.warn("[Checkout] Order placed; cart reconciliation will retry later.", clearError)
       );
@@ -127,10 +173,19 @@ export default function CheckoutReviewScreen() {
     } finally { submissionRef.current = false; submissionGate.current.leave(); setIsSubmitting(false); }
   };
 
+  const handleCheckoutAbandoned = () => {
+    if (!isSubmitting && cart.items.length > 0) {
+      void trackEvent(AnalyticsEvent.CheckoutAbandoned, {
+        cartItemCount: cart.totalItems, cartValue: cart.totalPriceJmdCents,
+      }, userId);
+    }
+    router.replace("/cart");
+  };
+
   if (!isAuthenticated) {
     return (
       <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-        <Header onBack={() => router.replace("/cart")} />
+        <Header onBack={handleCheckoutAbandoned} />
         <View style={styles.centerState}>
           <Ionicons name="person-circle-outline" size={64} color="#9CA3AF" />
           <Text style={styles.stateTitle}>Sign in to checkout</Text>
@@ -145,7 +200,7 @@ export default function CheckoutReviewScreen() {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-        <Header onBack={() => router.replace("/cart")} />
+        <Header onBack={handleCheckoutAbandoned} />
         <View style={styles.centerState}>
           <ActivityIndicator size="large" color="#10B981" />
           <Text style={styles.stateText}>Loading checkout...</Text>
@@ -156,7 +211,7 @@ export default function CheckoutReviewScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
-      <Header onBack={() => router.replace("/cart")} />
+      <Header onBack={handleCheckoutAbandoned} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <SectionTitle title="Delivery address" />
         {addressError ? (

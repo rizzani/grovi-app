@@ -1,0 +1,23 @@
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/(tabs)/search.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/_layout.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/address-form.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/checkout/review.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/product/[id].tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'contexts/CartContext.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/auth-service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'lib/checkout-service.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'package.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'scripts/setup-database.ts', LF will be replaced by CRLF the next time Git touches it
+ README.md                 |  4 [32m++++[m
+ app/(tabs)/search.tsx     |  5 [32m+++++[m
+ app/_layout.tsx           |  3 [32m+++[m
+ app/address-form.tsx      |  3 [32m+++[m
+ app/checkout/review.tsx   | 29 [32m+++++++++++++++++++++[m[31m----[m
+ app/product/[id].tsx      |  5 [32m+++++[m
+ contexts/CartContext.tsx  | 14 [32m++++++++++++[m
+ lib/auth-service.ts       |  3 [32m+++[m
+ lib/checkout-service.ts   |  7 [32m++++++[m
+ package.json              |  3 [32m++[m[31m-[m
+ scripts/setup-database.ts | 55 [32m++++++++++++++++++++++++++++++++++++++++++++++[m[31m-[m
+ 11 files changed, 125 insertions(+), 6 deletions(-)

@@ -11,6 +11,7 @@ import SortPicker from "../../components/SortPicker";
 import { useSearch } from "../../contexts/SearchContext";
 import { useUser } from "../../contexts/UserContext";
 import { useCart } from "../../contexts/CartContext";
+import { AnalyticsEvent, trackEvent } from "../../lib/analytics";
 import { getSearchSuggestions, searchProductsPaginated, ProductFilters as ProductFiltersType, SearchResult } from "../../lib/search-service";
 import { SortMode } from "../../lib/search/ranking";
 
@@ -95,6 +96,10 @@ export default function SearchScreen() {
       setCurrentPage(1);
       setTotalResults(paginatedResults.totalResults);
       setHasMore(paginatedResults.hasMore);
+      void trackEvent(AnalyticsEvent.ProductSearched, {
+        searchTerm: query.trim().toLowerCase().replace(/\s+/g, " ").slice(0, 200),
+        resultCount: paginatedResults.totalResults,
+      }, userId);
     } catch (error) {
       console.error("Search error:", error);
       setAllSearchResults([]);

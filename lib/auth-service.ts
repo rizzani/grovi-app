@@ -2,6 +2,7 @@ import { account } from "./appwrite-client";
 import { ID } from "appwrite";
 import { createOrUpdateProfile } from "./profile-service";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AnalyticsEvent, trackEvent } from "./analytics";
 
 const HAS_LOGGED_IN_KEY = "@grovi:has_logged_in";
 
@@ -79,6 +80,7 @@ export async function createSession(
     
     // Mark that user has logged in before
     await AsyncStorage.setItem(HAS_LOGGED_IN_KEY, "true");
+    void account.get().then((user) => trackEvent(AnalyticsEvent.UserLoggedIn, {}, user.$id));
 
     return {
       success: true,
@@ -202,6 +204,7 @@ export async function signUp(
 
   // Mark that user has logged in before (sign-up creates a session)
   await AsyncStorage.setItem(HAS_LOGGED_IN_KEY, "true");
+  void trackEvent(AnalyticsEvent.UserSignedUp, {}, accountResult.userId);
 
   return {
     success: true,

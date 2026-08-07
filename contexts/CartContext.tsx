@@ -21,6 +21,7 @@ import {
   CartItemValidation,
 } from "../lib/cart-validation-service";
 import { useUser } from "./UserContext";
+import { AnalyticsEvent, trackEvent } from "../lib/analytics";
 
 export interface CartValidationState {
   /** Current validation result */
@@ -125,6 +126,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
       const loadedCart = await getCart();
       setCart(loadedCart);
+      if (__DEV__) console.log("[CartContext] Hydrated cart", {
+        itemCount: loadedCart.items.length,
+        totalItems: loadedCart.totalItems,
+        cartRevision: loadedCart.updatedAt,
+      });
       return loadedCart;
     } catch (error) {
       console.error("Error loading cart:", error);
@@ -280,6 +286,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
           updatedAt: new Date().toISOString(),
         };
 
+        void trackEvent(AnalyticsEvent.ProductAddedToCart, {
+          productId, storeId, quantity, cartItemCount: totalItems, cartValue: totalPriceJmdCents,
+        }, userId);
+
         // Save in background - don't wait
         saveCart(updatedCart);
         return updatedCart;
@@ -295,6 +305,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       // Use functional update to prevent race conditions
       // Work directly with current state - don't read from storage
       setCart((currentCart) => {
+        const removedItem = currentCart.items.find((item) => item.productId === productId && item.storeId === storeId);
         const filteredItems = currentCart.items.filter(
           (item) => !(item.productId === productId && item.storeId === storeId)
         );
@@ -315,6 +326,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
           storeIds,
           updatedAt: new Date().toISOString(),
         };
+
+        if (removedItem) void trackEvent(AnalyticsEvent.ProductRemovedFromCart, {
+          productId, storeId, quantity: removedItem.quantity, cartItemCount: totalItems, cartValue: totalPriceJmdCents,
+        }, userId);
 
         // Save in background - don't wait
         saveCart(updatedCart);
@@ -337,6 +352,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setCart((currentCart) => {
         // Handle quantity <= 0 (remove item)
         if (quantity <= 0) {
+          const removedItem = currentCart.items.find((item) => item.productId === productId && item.storeId === storeId);
           const filteredItems = currentCart.items.filter(
             (item) => !(item.productId === productId && item.storeId === storeId)
           );
@@ -359,6 +375,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
             storeIds,
             updatedAt: new Date().toISOString(),
           };
+          if (removedItem) void trackEvent(AnalyticsEvent.ProductRemovedFromCart, {
+            productId, storeId, quantity: removedItem.quantity, cartItemCount: totalItems, cartValue: totalPriceJmdCents,
+          }, userId);
           
           // Save in background
           saveCart(finalCart);
@@ -414,9 +433,21 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const reconcilePurchasedCart = async (revision: string) => {
     if (!userId) throw new Error("Authentication is required to reconcile the cart.");
-    const result = await reconcilePurchasedCartService(userId, revision);
-    await loadCart();
-    return result;
+    if (__DEV__) console.log("[CartContext] Reconciling purchased cart", { cartRevision: revision });
+    try {
+      const result = await reconcilePurchasedCartService(userId, revision);
+      const hydrated = await loadCart();
+      if (__DEV__) console.log("[CartContext] Cart after reconciliation", {
+        cartRevision: hydrated?.updatedAt,
+        itemCount: hydrated?.items.length,
+        result,
+      });
+      return result;
+    } catch (error) {
+      console.error("[CartContext] Purchased cart reconciliation failed", { cartRevision: revision, error });
+      try { await loadCart(); } catch (refreshError) { console.error("[CartContext] Cart refresh after reconciliation failure failed", refreshError); }
+      throw error;
+    }
   };
 
   const isProductInCart = (productId: string, storeId: string): boolean => {

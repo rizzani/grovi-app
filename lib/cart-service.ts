@@ -89,14 +89,7 @@ export async function getCart(): Promise<Cart> {
     return calculateCartTotals(cart);
   } catch (error) {
     console.error("Error loading cart:", error);
-    // Fallback to empty cart
-    return {
-      items: [],
-      totalItems: 0,
-      totalPriceJmdCents: 0,
-      storeIds: [],
-      updatedAt: new Date().toISOString(),
-    };
+    throw error;
   }
 }
 

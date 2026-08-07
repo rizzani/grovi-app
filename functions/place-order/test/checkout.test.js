@@ -24,6 +24,7 @@ test("valid single-store checkout", async () => {
   assert.equal(repo.orderItems.size, 1);
   assert.equal(repo.audits.size, 1);
   assert.equal(repo.carts.size, 1);
+  assert.deepEqual(JSON.parse(repo.carts.get("user-1").items), []);
 });
 
 test("valid multi-store checkout", async () => {
@@ -74,6 +75,29 @@ test("duplicate identical request returns original order", async () => {
   assert.equal(second.data.idempotentReplay, true);
   assert.equal(repo.orders.size, 1);
   assert.equal(repo.audits.size, 1);
+  assert.deepEqual(JSON.parse(repo.carts.get("user-1").items), []);
+});
+
+test("cart clear failure does not roll back the placed order and replay stays idempotent", async () => {
+  const { repo, input } = fixture();
+  repo.failCartClear = true;
+  const first = await placeOrder({ userId: "user-1", input, repo, now: NOW });
+  assert.equal(first.data.status, "placed");
+  assert.equal(first.data.cartReconciliation, "failed");
+  const second = await placeOrder({ userId: "user-1", input, repo, now: NOW });
+  assert.equal(second.data.orderId, first.data.orderId);
+  assert.equal(second.data.idempotentReplay, true);
+  assert.equal(repo.orders.size, 1);
+});
+
+test("a new idempotency key cannot consume the same uncleared cart revision twice", async () => {
+  const { repo, input } = fixture();
+  repo.failCartClear = true;
+  const first = await placeOrder({ userId: "user-1", input, repo, now: NOW });
+  const second = await placeOrder({ userId: "user-1", input: { ...input, clientRequestId: "request-2" }, repo, now: NOW });
+  assert.equal(second.data.orderId, first.data.orderId);
+  assert.equal(second.data.idempotentReplay, true);
+  assert.equal(repo.orders.size, 1);
 });
 
 test("duplicate key with changed request is rejected", async () => {

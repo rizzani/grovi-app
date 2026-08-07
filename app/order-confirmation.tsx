@@ -22,8 +22,17 @@ export default function OrderConfirmationScreen() {
     void (async () => {
       const attempt = await loadCheckoutAttempt(userId);
       if (attempt?.state === "succeeded" && attempt.orderId === details.order.$id && details.order.cartUpdatedAt) {
-        try { await reconcilePurchasedCart(details.order.cartUpdatedAt); await cancelCheckoutAttempt(userId); }
-        catch (cause) { console.warn("[Checkout] Cart reconciliation remains pending.", cause); }
+        try {
+          const result = await reconcilePurchasedCart(details.order.cartUpdatedAt);
+          if (__DEV__) console.log("[Checkout] Confirmation cart reconciliation", {
+            checkoutAttemptId: attempt.request.clientRequestId,
+            orderId: details.order.$id,
+            cartRevision: details.order.cartUpdatedAt,
+            result,
+          });
+          if (result === "cleared") await cancelCheckoutAttempt(userId);
+          else console.warn("[Checkout] Cart revision changed after order; preserving newer cart contents.");
+        } catch (cause) { console.warn("[Checkout] Cart reconciliation remains pending; completed attempt retained.", cause); }
       }
     })();
   }, [details, reconcilePurchasedCart, userId]);
