@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   ScrollView,
@@ -15,7 +15,7 @@ import { useCheckout } from "../../contexts/CheckoutContext";
 import { useUser } from "../../contexts/UserContext";
 import { CartItem, getCheckoutCartSnapshot } from "../../lib/cart-service";
 import { Address, getAddresses } from "../../lib/profile-service";
-import { cancelCheckoutAttempt, CheckoutError, executeCheckout, getOrCreateCheckoutAttempt, loadCheckoutAttempt, markCheckoutStarted } from "../../lib/checkout-service";
+import { cancelCheckoutAttempt, CheckoutError, executeCheckout, getDeliveryQuote, getOrCreateCheckoutAttempt, loadCheckoutAttempt, markCheckoutStarted, DeliveryQuoteData } from "../../lib/checkout-service";
 import { completedAttemptMatchesCart, finishSuccessfulCheckout, SubmissionGate } from "../../lib/checkout-lifecycle";
 import { isValidCoordinates } from "../../lib/location-utils";
 import { AnalyticsEvent, trackEvent } from "../../lib/analytics";
@@ -25,6 +25,11 @@ interface StoreGroup {
   items: CartItem[];
   subtotal: number;
 }
+
+type DeliveryQuoteState =
+  | { status: "idle" | "loading" }
+  | { status: "success"; data: DeliveryQuoteData }
+  | { status: "error"; error: CheckoutError };
 
 const formatJmd = (cents: number) => `J$${(cents / 100).toFixed(2)}`;
 
@@ -43,6 +48,8 @@ export default function CheckoutReviewScreen() {
   const [addressError, setAddressError] = useState<string | null>(null);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deliveryQuote, setDeliveryQuote] = useState<DeliveryQuoteState>({ status: "idle" });
+  const [quoteRetryNonce, setQuoteRetryNonce] = useState(0);
   const submissionRef = useRef(false);
   const successHandledRef = useRef(false);
   const submissionGate = useRef(new SubmissionGate());
@@ -105,12 +112,46 @@ export default function CheckoutReviewScreen() {
     return groups;
   }, {});
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!userId || !selectedAddressId || !hasValidLocation || cart.items.length === 0 || isLoading) {
+      setDeliveryQuote({ status: "idle" });
+      return () => { cancelled = true; };
+    }
+
+    setDeliveryQuote({ status: "loading" });
+    void (async () => {
+      try {
+        const snapshot = await getCheckoutCartSnapshot(userId);
+        if (snapshot.items.length === 0) {
+          if (!cancelled) setDeliveryQuote({ status: "error", error: new CheckoutError("EMPTY_CART", "Your cart is empty.") });
+          return;
+        }
+        const quote = await getDeliveryQuote(selectedAddressId, snapshot.updatedAt);
+        if (!cancelled) setDeliveryQuote({ status: "success", data: quote });
+      } catch (caught) {
+        if (cancelled) return;
+        const error = caught instanceof CheckoutError
+          ? caught
+          : new CheckoutError("DELIVERY_DISTANCE_UNAVAILABLE", "We couldn't calculate delivery pricing right now.", true);
+        setDeliveryQuote({ status: "error", error });
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [cart.items.length, cart.updatedAt, hasValidLocation, isLoading, quoteRetryNonce, selectedAddressId, userId]);
+
   const handlePlaceOrder = async () => {
-    if (!submissionGate.current.enter() || submissionRef.current || !userId || !selectedAddress || !hasValidLocation || cart.items.length === 0) { submissionGate.current.leave(); return; }
+    if (!submissionGate.current.enter() || submissionRef.current || !userId || !selectedAddress || !hasValidLocation || cart.items.length === 0 || deliveryQuote.status !== "success") { submissionGate.current.leave(); return; }
     submissionRef.current = true; setIsSubmitting(true); setSubmissionError(null);
     try {
       const snapshot = await getCheckoutCartSnapshot(userId);
       if (snapshot.items.length === 0) { router.replace("/cart"); return; }
+      if (deliveryQuote.data.addressId !== selectedAddress.$id || deliveryQuote.data.cartRevision !== snapshot.updatedAt) {
+        setDeliveryQuote({ status: "loading" });
+        setQuoteRetryNonce((value) => value + 1);
+        return;
+      }
       const attempt = await getOrCreateCheckoutAttempt(userId, selectedAddress.$id, snapshot.updatedAt);
       if (attempt.state !== "succeeded" && await markCheckoutStarted(attempt)) {
         void trackEvent(AnalyticsEvent.CheckoutStarted, {
@@ -159,6 +200,15 @@ export default function CheckoutReviewScreen() {
           break;
         case "INVALID_DELIVERY_LOCATION":
           setSubmissionError("Choose a valid delivery location before placing the order.");
+          break;
+        case "DELIVERY_OUT_OF_RANGE":
+          setSubmissionError("That address is outside Grovi's delivery area. Choose another address.");
+          break;
+        case "DELIVERY_DISTANCE_UNAVAILABLE":
+          setSubmissionError("We couldn't calculate delivery pricing right now. Tap Retry to try again.");
+          break;
+        case "STORE_LOCATION_COORDINATES_MISSING":
+          setSubmissionError("Delivery is temporarily unavailable for this store. Please try again later.");
           break;
         case "EMPTY_CART": router.replace("/cart"); break;
         case "CART_REVISION_CONFLICT": await cancelCheckoutAttempt(userId); await refreshCart(); setSubmissionError("Your cart changed. Please review it before placing the order."); break;
@@ -290,12 +340,19 @@ export default function CheckoutReviewScreen() {
 
         <SectionTitle title="Order summary" />
         <View style={styles.card}>
-          <SummaryRow label="Items subtotal" value={formatJmd(cart.totalPriceJmdCents)} />
-          <SummaryRow label="Delivery fee" value="J$0.00" />
-          <Text style={styles.policyText}>MVP policy: delivery is free while delivery pricing is being finalized.</Text>
+          <SummaryRow label="Items subtotal" value={deliveryQuote.status === "success" ? formatJmd(deliveryQuote.data.subtotalJmdCents) : formatJmd(cart.totalPriceJmdCents)} />
+          <SummaryRow label="Delivery fee" value={deliveryQuote.status === "success" ? formatJmd(deliveryQuote.data.deliveryFeeJmdCents) : deliveryQuote.status === "loading" ? "Calculating..." : "Unavailable"} />
+          {deliveryQuote.status === "success" && <Text style={styles.distanceText}>{(deliveryQuote.data.deliveryDistanceMeters / 1000).toFixed(2)} km delivery</Text>}
+          {deliveryQuote.status === "error" && (
+            <View style={styles.quoteErrorRow}>
+              <Text style={styles.errorText}>{deliveryQuote.error.code === "DELIVERY_OUT_OF_RANGE" ? "This address is outside our current delivery area." : deliveryQuote.error.code === "INVALID_DELIVERY_LOCATION" ? "Choose a valid map location before checkout." : "We couldn't calculate delivery right now."}</Text>
+              {deliveryQuote.error.code !== "DELIVERY_OUT_OF_RANGE" && <TouchableOpacity onPress={() => setQuoteRetryNonce((value) => value + 1)}><Text style={styles.actionText}>Retry</Text></TouchableOpacity>}
+            </View>
+          )}
+          <Text style={styles.policyText}>Delivery is priced from the driving route between the selected store and address.</Text>
           <View style={styles.grandTotalRow}>
             <Text style={styles.grandTotalLabel}>Grand total</Text>
-            <Text style={styles.grandTotalValue}>{formatJmd(cart.totalPriceJmdCents)}</Text>
+            <Text style={styles.grandTotalValue}>{deliveryQuote.status === "success" ? formatJmd(deliveryQuote.data.totalJmdCents) : "—"}</Text>
           </View>
         </View>
       </ScrollView>
@@ -303,8 +360,8 @@ export default function CheckoutReviewScreen() {
       <View style={styles.footer}>
         {submissionError && <Text style={styles.submissionError}>{submissionError}</Text>}
         <TouchableOpacity
-          style={[styles.placeOrderButton, (!selectedAddress || !hasValidLocation || cart.items.length === 0 || isSubmitting) && styles.disabledButton]}
-          disabled={!selectedAddress || !hasValidLocation || cart.items.length === 0 || isSubmitting}
+          style={[styles.placeOrderButton, (!selectedAddress || !hasValidLocation || cart.items.length === 0 || isSubmitting || deliveryQuote.status !== "success") && styles.disabledButton]}
+          disabled={!selectedAddress || !hasValidLocation || cart.items.length === 0 || isSubmitting || deliveryQuote.status !== "success"}
           onPress={handlePlaceOrder}
           activeOpacity={0.7}
         >
@@ -358,6 +415,8 @@ const styles = StyleSheet.create({
   secondaryText: { fontSize: 14, lineHeight: 20, color: "#6B7280" },
   actionText: { color: "#10B981", fontSize: 15, fontWeight: "600" },
   errorText: { color: "#DC2626", marginBottom: 12 },
+  quoteErrorRow: { marginBottom: 12 },
+  distanceText: { fontSize: 13, color: "#047857", marginBottom: 12 },
   storeHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: "#E5E7EB" },
   storeTitleRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   storeSubtotal: { fontSize: 15, fontWeight: "700", color: "#111827" },

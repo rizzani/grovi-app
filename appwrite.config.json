@@ -1,13 +1,91 @@
 {
-  "projectId": "${EXPO_PUBLIC_APPWRITE_PROJECT_ID}",
-  "endpoint": "${EXPO_PUBLIC_APPWRITE_ENDPOINT}",
-  "functions": [
+    "projectId": "694da93500201a5a39a9",
+    "endpoint": "https://nyc.cloud.appwrite.io/v1",
+    "functions": [
+        {
+            "$id": "place-order",
+            "name": "Place Cash on Delivery Order",
+            "runtime": "node-22",
+            "path": "functions/place-order",
+            "entrypoint": "src/main.js",
+            "commands": "npm install --omit=dev",
+            "execute": [
+                "users"
+            ],
+            "events": [],
+            "schedule": "",
+            "timeout": 30,
+            "enabled": true,
+            "logging": true,
+            "ignore": [
+                "node_modules",
+                ".git",
+                "test"
+            ],
+            "scopes": [
+                "documents.read",
+                "documents.write"
+            ],
+            "vars": [
+                {
+                    "$id": "grovi-database-id",
+                    "key": "GROVI_DATABASE_ID",
+                    "value": "grovi_staging"
+                },
+                {
+                    "$id": "grovi-routing-provider-url",
+                    "key": "GROVI_ROUTING_PROVIDER_URL",
+                    "value": "https://router.project-osrm.org"
+                },
+                {
+                    "$id": "grovi-routing-timeout-ms",
+                    "key": "GROVI_ROUTING_TIMEOUT_MS",
+                    "value": "5000"
+                },
+                {
+                    "$id": "grovi-routing-api-key",
+                    "key": "GROVI_ROUTING_API_KEY",
+                    "value": ""
+                }
+            ]
+        },
     {
-      "$id": "place-order",
-      "name": "Place Cash on Delivery Order",
+      "$id": "calculate-distance",
+            "name": "Calculate Store Delivery Distances",
+            "runtime": "node-22",
+            "path": "functions/calculate-distance",
+            "entrypoint": "src/main.js",
+            "commands": "npm install --omit=dev",
+            "execute": [
+                "users"
+            ],
+            "events": [],
+            "schedule": "",
+            "timeout": 15,
+            "enabled": true,
+            "logging": true,
+            "ignore": [
+                "node_modules",
+                ".git",
+                "test"
+            ],
+            "scopes": [
+                "documents.read"
+            ],
+            "vars": [
+                {
+                    "$id": "grovi-distance-database-id",
+                    "key": "GROVI_DATABASE_ID",
+                    "value": "grovi_staging"
+                }
+      ]
+    },
+    {
+      "$id": "quote-delivery",
+      "name": "Quote Delivery Price",
       "runtime": "node-22",
       "path": "functions/place-order",
-      "entrypoint": "src/main.js",
+      "entrypoint": "src/quote-main.js",
       "commands": "npm install --omit=dev",
       "execute": ["users"],
       "events": [],
@@ -16,33 +94,13 @@
       "enabled": true,
       "logging": true,
       "ignore": ["node_modules", ".git", "test"],
-      "scopes": ["documents.read", "documents.write"],
-      "vars": [
-        {
-          "$id": "grovi-database-id",
-          "key": "GROVI_DATABASE_ID",
-          "value": "grovi_staging"
-        }
-      ]
-    },
-    {
-      "$id": "calculate-distance",
-      "name": "Calculate Store Delivery Distances",
-      "runtime": "node-22",
-      "path": "functions/calculate-distance",
-      "entrypoint": "src/main.js",
-      "commands": "npm install --omit=dev",
-      "execute": ["users"],
-      "events": [],
-      "schedule": "",
-      "timeout": 15,
-      "enabled": true,
-      "logging": true,
-      "ignore": ["node_modules", ".git", "test"],
       "scopes": ["documents.read"],
       "vars": [
-        { "$id": "grovi-distance-database-id", "key": "GROVI_DATABASE_ID", "value": "grovi_staging" }
+        { "$id": "grovi-quote-database-id", "key": "GROVI_DATABASE_ID", "value": "grovi_staging" },
+        { "$id": "grovi-quote-routing-provider-url", "key": "GROVI_ROUTING_PROVIDER_URL", "value": "https://router.project-osrm.org" },
+        { "$id": "grovi-quote-routing-timeout-ms", "key": "GROVI_ROUTING_TIMEOUT_MS", "value": "5000" },
+        { "$id": "grovi-quote-routing-api-key", "key": "GROVI_ROUTING_API_KEY", "value": "" }
       ]
     }
-  ]
+    ]
 }

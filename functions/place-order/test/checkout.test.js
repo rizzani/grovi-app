@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { placeOrder } from "../src/checkout.js";
+import { placeOrder, quoteOrder } from "../src/checkout.js";
 import { CheckoutError } from "../src/errors.js";
 import { fixture } from "./harness.js";
 
@@ -16,8 +16,8 @@ test("valid single-store checkout", async () => {
   assert.equal(result.data.status, "placed");
   assert.equal(result.data.itemCount, 2);
   assert.equal(result.data.storeCount, 1);
-  assert.equal(result.data.totalJmdCents, 50000);
-  assert.equal(result.data.deliveryFeeJmdCents, 0);
+  assert.equal(result.data.totalJmdCents, 100000);
+  assert.equal(result.data.deliveryFeeJmdCents, 50000);
   assert.equal(result.data.consumedRevision, revision);
   assert.equal(repo.orders.size, 1);
   assert.equal(repo.storeOrders.size, 1);
@@ -33,6 +33,7 @@ test("valid multi-store checkout", async () => {
   assert.equal(result.data.itemCount, 3);
   assert.equal(result.data.storeCount, 2);
   assert.equal(result.data.subtotalJmdCents, 90000);
+  assert.equal(result.data.deliveryFeeJmdCents, 80000);
   assert.equal(repo.storeOrders.size, 2);
   assert.equal(repo.orderItems.size, 2);
 });
@@ -137,4 +138,49 @@ test("malformed cart data", async () => {
   const { repo, input } = fixture();
   repo.carts.get("user-1").items = "{bad-json";
   await expectCode(placeOrder({ userId: "user-1", input, repo, now: NOW }), "ORDER_CREATION_FAILED");
+});
+
+test("client cannot override server route pricing", async () => {
+  const { repo, input } = fixture();
+  await expectCode(placeOrder({ userId: "user-1", input: { ...input, deliveryFeeJmdCents: 1 }, repo, now: NOW }), "INVALID_REQUEST");
+});
+
+test("routing provider failure is retryable and never creates an order", async () => {
+  const { repo, input } = fixture();
+  repo.distanceProvider = { getDrivingDistance: async () => { throw new Error("offline"); } };
+  await expectCode(placeOrder({ userId: "user-1", input, repo, now: NOW }), "DELIVERY_DISTANCE_UNAVAILABLE");
+  assert.equal(repo.orders.size, 0);
+});
+
+test("missing store coordinates is a configuration error", async () => {
+  const { repo, input } = fixture();
+  delete repo.stores.get("store-1").latitude;
+  await expectCode(placeOrder({ userId: "user-1", input, repo, now: NOW }), "STORE_LOCATION_COORDINATES_MISSING");
+});
+
+test("missing customer coordinates is rejected without estimating from text", async () => {
+  const { repo, input } = fixture();
+  delete repo.addresses.get("address-1").latitude;
+  await expectCode(placeOrder({ userId: "user-1", input, repo, now: NOW }), "INVALID_DELIVERY_LOCATION");
+});
+
+test("out of range delivery is rejected", async () => {
+  const { repo, input } = fixture();
+  repo.distanceProvider = { getDrivingDistance: async () => ({ distanceMeters: 20001 }) };
+  await expectCode(placeOrder({ userId: "user-1", input, repo, now: NOW }), "DELIVERY_OUT_OF_RANGE");
+});
+
+test("delivery quote uses the same authoritative route pricing as order creation", async () => {
+  const { repo, input } = fixture();
+  const quote = await quoteOrder({ userId: "user-1", addressId: input.addressId, cartRevision: input.cartRevision, repo });
+  assert.equal(quote.data.deliveryFeeJmdCents, 50000);
+  assert.equal(quote.data.subtotalJmdCents, 50000);
+  assert.equal(quote.data.totalJmdCents, 100000);
+  assert.equal(quote.data.deliveryDistanceMeters, 5800);
+  assert.equal(quote.data.deliveryPricingVersion, "distance-bands-v1");
+});
+
+test("delivery quote rejects a stale cart revision", async () => {
+  const { repo, input } = fixture();
+  await expectCode(quoteOrder({ userId: "user-1", addressId: input.addressId, cartRevision: "stale", repo }), "CART_REVISION_CONFLICT");
 });

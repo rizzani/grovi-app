@@ -1,6 +1,6 @@
 # Database Inspection Report
 
-**Generated:** 2026-07-20T19:17:33.504Z  
+**Generated:** 2026-08-08T14:32:43.215Z  
 **Database ID:** grovi_staging
 
 ---
@@ -9,10 +9,10 @@
 
 Database ID: grovi_staging
 
-📊 Comparing with previous report from 1/21/2026, 12:25:14 PM
+📊 Comparing with previous report from 7/20/2026, 2:17:33 PM
 
 📦 Fetching collections...
-✓ Found 18 collection(s) (664ms)
+✓ Found 19 collection(s) (1575ms)
 
 
 ============================================================
@@ -21,7 +21,7 @@ Collection: Categories (categories)
 Document security: disabled
 Collection permissions: read("users"), read("guests")
 
-📋 Attributes (6) [244ms]:
+📋 Attributes (6) [198ms]:
   - path_names: string[array] (optional)
   - depth: integer (optional)
   - name: string (required)
@@ -29,12 +29,12 @@ Collection permissions: read("users"), read("guests")
   - path_ids: string[array] (optional)
   - slug: string (required)
 
-🔍 Indexes (3) [345ms]:
+🔍 Indexes (3) [197ms]:
   - slug: key on [slug]
   - parent_id: key on [parent_id]
   - idx_name_fulltext: fulltext on [name]
 
-📄 Documents: 22 [526ms]
+📄 Documents: 22 [439ms]
 
 ✓ Data Quality: Good (checked 10 documents)
 
@@ -59,7 +59,7 @@ Collection: Products (products)
 Document security: disabled
 Collection permissions: read("any"), create("any"), update("any"), delete("any")
 
-📋 Attributes (16) [243ms]:
+📋 Attributes (25) [195ms]:
   - variants: string (optional)
   - updated_at: string (required)
   - category_path_ids: string[array] (required)
@@ -76,8 +76,17 @@ Collection permissions: read("any"), create("any"), update("any"), delete("any")
   - images: string (required)
   - net_weight: string (optional)
   - country_of_origin: string (optional)
+  - isActive: boolean (optional)
+  - isFeatured: boolean (optional)
+  - featuredPriority: integer (optional)
+  - featuredStartAt: datetime (optional)
+  - featuredEndAt: datetime (optional)
+  - isEssential: boolean (optional)
+  - manualPopularityScore: double (optional)
+  - viewCount: integer (optional)
+  - cartAddCount: integer (optional)
 
-🔍 Indexes (9) [242ms]:
+🔍 Indexes (9) [191ms]:
   - external_source_external_id: key on [external_id]
   - category_leaf_id: key on [category_leaf_id]
   - sku: key on [sku]
@@ -88,7 +97,7 @@ Collection permissions: read("any"), create("any"), update("any"), delete("any")
   - idx_external_source_in_stock: key on [external_source]
   - idx_sku_unique_search: unique on [sku]
 
-📄 Documents: 1050 [305ms]
+📄 Documents: 1050 [224ms]
 
 ✓ Data Quality: Good (checked 10 documents)
 
@@ -109,6 +118,21 @@ Collection permissions: read("any"), create("any"), update("any"), delete("any")
   - images: string = [{"fileId":"6958758cedf5151f9a47","url":"https://n...
   - net_weight: object = null
   - country_of_origin: object = null
+  - isActive: object = null
+  - isFeatured: object = null
+  - featuredPriority: object = null
+  - featuredStartAt: object = null
+  - featuredEndAt: object = null
+  - isEssential: object = null
+  - manualPopularityScore: object = null
+  - viewCount: object = null
+  - cartAddCount: object = null
+  - orderCount: object = null
+  - salePrice: object = null
+  - promotionStartAt: object = null
+  - promotionEndAt: object = null
+  - rating: object = null
+  - review_count: object = null
   - $id: string = 6958759a0030e6ef187a
   - $sequence: number = 1
   - $createdAt: string = 2026-01-03T01:49:14.666+00:00
@@ -123,17 +147,17 @@ Collection: Image Sources (image_sources)
 Document security: disabled
 Collection permissions: read("any"), create("any"), update("any"), delete("any")
 
-📋 Attributes (4) [249ms]:
+📋 Attributes (4) [210ms]:
   - source_url: string (required)
   - fileId: string (required)
   - stored_image_url: string (required)
   - source_url_hash: string (required)
 
-🔍 Indexes (2) [329ms]:
+🔍 Indexes (2) [192ms]:
   - source_url_hash: key on [source_url_hash]
   - file_id_lookup: key on [fileId]
 
-📄 Documents: 4909 [394ms]
+📄 Documents: 4909 [216ms]
 
 ✓ Data Quality: Good (checked 10 documents)
 
@@ -156,7 +180,7 @@ Collection: SKU Registry (sku_registry)
 Document security: disabled
 Collection permissions: read("any"), create("any"), update("any"), delete("any")
 
-📋 Attributes (6) [259ms]:
+📋 Attributes (6) [209ms]:
   - brand: string (optional)
   - title: string (required)
   - sku: string (required)
@@ -164,11 +188,11 @@ Collection permissions: read("any"), create("any"), update("any"), delete("any")
   - unit_size: string (optional)
   - identity_key: string (required)
 
-🔍 Indexes (2) [347ms]:
+🔍 Indexes (2) [179ms]:
   - identity_key: key on [identity_key]
   - sku_lookup: key on [sku]
 
-📄 Documents: 1066 [307ms]
+📄 Documents: 1066 [872ms]
 
 ✓ Data Quality: Good (checked 10 documents)
 
@@ -193,7 +217,7 @@ Collection: Profiles (profiles)
 Document security: disabled
 Collection permissions: read("users"), create("users"), update("users"), delete("users")
 
-📋 Attributes (6) [357ms]:
+📋 Attributes (6) [189ms]:
   - userId: string (required)
   - name: string (optional)
   - phone: string (required)
@@ -201,7 +225,7 @@ Collection permissions: read("users"), create("users"), update("users"), delete(
   - firstName: string (optional)
   - lastName: string (optional)
 
-🔍 Indexes (1) [239ms]:
+🔍 Indexes (1) [191ms]:
   - idx_userId: key on [userId]
 
 📄 Documents: Unable to fetch (The current user is not authorized to perform the requested action.)
@@ -212,13 +236,13 @@ Collection: Audit Logs (audit_logs)
 Document security: disabled
 Collection permissions: read("users"), create("users"), update("users"), delete("users")
 
-📋 Attributes (4) [380ms]:
+📋 Attributes (4) [193ms]:
   - userId: string (required)
   - eventType: string (required)
   - metadata: string (optional)
   - timestamp: string (required)
 
-🔍 Indexes (3) [227ms]:
+🔍 Indexes (3) [88ms]:
   - idx_userId: key on [userId]
   - idx_eventType: key on [eventType]
   - idx_timestamp: key on [timestamp]
@@ -231,19 +255,25 @@ Collection: Addresses (addresses)
 Document security: disabled
 Collection permissions: read("users"), create("users"), update("users"), delete("users")
 
-📋 Attributes (9) [256ms]:
+📋 Attributes (14) [196ms]:
   - userId: string (required)
   - label: string (required)
   - parish: string (required)
   - community: string (required)
   - street: string (optional)
   - houseDetails: string (optional)
-  - landmarkDirections: string (required)
+  - landmarkDirections: string (optional)
   - contactPhone: string (optional)
   - default: boolean (required)
+  - deliveryAddress: string (optional)
+  - formattedAddress: string (optional)
+  - locationUpdatedAt: string (optional)
+  - latitude: double (optional)
+  - longitude: double (optional)
 
-🔍 Indexes (1) [238ms]:
+🔍 Indexes (2) [186ms]:
   - idx_userId: key on [userId]
+  - idx_user_default: key on [userId, default]
 
 📄 Documents: Unable to fetch (The current user is not authorized to perform the requested action.)
 
@@ -253,12 +283,12 @@ Collection: User Preferences (user_preferences)
 Document security: disabled
 Collection permissions: read("users"), create("users"), update("users"), delete("users")
 
-📋 Attributes (3) [261ms]:
+📋 Attributes (3) [197ms]:
   - userId: string (required)
   - dietaryPreferences: string[array] (optional)
   - categoryPreferences: string[array] (optional)
 
-🔍 Indexes (1) [341ms]:
+🔍 Indexes (1) [188ms]:
   - idx_userId: key on [userId]
 
 📄 Documents: Unable to fetch (The current user is not authorized to perform the requested action.)
@@ -269,7 +299,7 @@ Collection: Notification Preferences (notification_preferences)
 Document security: disabled
 Collection permissions: read("users"), create("users"), update("users"), delete("users")
 
-📋 Attributes (7) [264ms]:
+📋 Attributes (7) [197ms]:
   - userId: string (required)
   - pushToken: string (optional)
   - orderUpdatesEnabled: boolean (required)
@@ -278,7 +308,7 @@ Collection permissions: read("users"), create("users"), update("users"), delete(
   - emailEnabled: boolean (required)
   - smsEnabled: boolean (required)
 
-🔍 Indexes (1) [240ms]:
+🔍 Indexes (1) [185ms]:
   - idx_userId: key on [userId]
 
 📄 Documents: Unable to fetch (The current user is not authorized to perform the requested action.)
@@ -289,7 +319,7 @@ Collection: Payment Methods (payment_methods)
 Document security: disabled
 Collection permissions: read("users"), create("users"), update("users"), delete("users")
 
-📋 Attributes (6) [358ms]:
+📋 Attributes (6) [203ms]:
   - userId: string (required)
   - type: string (required)
   - brand: string (optional)
@@ -297,7 +327,7 @@ Collection permissions: read("users"), create("users"), update("users"), delete(
   - maskedNumber: string (optional)
   - label: string (optional)
 
-🔍 Indexes (1) [341ms]:
+🔍 Indexes (1) [183ms]:
   - idx_userId: key on [userId]
 
 📄 Documents: Unable to fetch (The current user is not authorized to perform the requested action.)
@@ -308,7 +338,7 @@ Collection: Store Brands (store_brand)
 Document security: disabled
 Collection permissions: create("users"), read("users"), update("users"), delete("users")
 
-📋 Attributes (7) [247ms]:
+📋 Attributes (7) [195ms]:
   - name: string (required)
   - slug: string (optional)
   - website_url: string (optional)
@@ -317,7 +347,7 @@ Collection permissions: create("users"), read("users"), update("users"), delete(
   - country_code: string (required)
   - is_active: boolean (required)
 
-🔍 Indexes (1) [241ms]:
+🔍 Indexes (1) [73ms]:
   - idx_brand_slug_unique: key on [slug]
 
 📄 Documents: Unable to fetch (The current user is not authorized to perform the requested action.)
@@ -328,7 +358,7 @@ Collection: Store Locations (store_location)
 Document security: disabled
 Collection permissions: create("users"), read("users"), update("users"), delete("users")
 
-📋 Attributes (10) [351ms]:
+📋 Attributes (14) [456ms]:
   - brand_id: string (required)
   - name: string (required)
   - display_name: string (required)
@@ -339,9 +369,14 @@ Collection permissions: create("users"), read("users"), update("users"), delete(
   - phone: string (optional)
   - is_active: boolean (required)
   - priority: integer (optional)
+  - delivery_time_minutes: integer (optional)
+  - latitude: double (optional)
+  - longitude: double (optional)
+  - logo_url: string (optional)
 
-🔍 Indexes (1) [245ms]:
+🔍 Indexes (2) [80ms]:
   - idx_is_active: key on [is_active]
+  - idx_parish_active: key on [parish, is_active]
 
 📄 Documents: Unable to fetch (The current user is not authorized to perform the requested action.)
 
@@ -351,7 +386,7 @@ Collection: Store Location Product (store_location_product)
 Document security: disabled
 Collection permissions: read("users"), create("users"), update("users"), delete("users")
 
-📋 Attributes (14) [259ms]:
+📋 Attributes (15) [194ms]:
   - product_id: string (required)
   - store_location_id: string (required)
   - brand_id: string (required)
@@ -366,8 +401,9 @@ Collection permissions: read("users"), create("users"), update("users"), delete(
   - first_seen_at: datetime (optional)
   - last_seen_at: datetime (optional)
   - content_hash: string (optional)
+  - sale_price_jmd_cents: integer (optional)
 
-🔍 Indexes (7) [236ms]:
+🔍 Indexes (7) [191ms]:
   - idx_product_location: key on [product_id, store_location_id]
   - idx_store_location: key on [store_location_id]
   - idx_brand: key on [brand_id]
@@ -384,14 +420,14 @@ Collection: Search Analytics (search_analytics)
 Document security: disabled
 Collection permissions: read("users"), create("users"), update("users"), delete("users")
 
-📋 Attributes (5) [360ms]:
+📋 Attributes (5) [269ms]:
   - userId: string (optional)
   - query: string (required)
   - timestamp: string (required)
   - resultCount: integer (required)
   - isNoResult: boolean (required)
 
-🔍 Indexes (3) [240ms]:
+🔍 Indexes (3) [187ms]:
   - idx_userId: key on [userId]
   - idx_timestamp: key on [timestamp]
   - idx_isNoResult: key on [isNoResult]
@@ -404,7 +440,7 @@ Collection: Shopping Carts (carts)
 Document security: disabled
 Collection permissions: read("users"), create("users"), update("users"), delete("users")
 
-📋 Attributes (6) [253ms]:
+📋 Attributes (6) [100ms]:
   - userId: string (required)
   - updatedAt: string (required)
   - totalItems: integer (required)
@@ -412,7 +448,7 @@ Collection permissions: read("users"), create("users"), update("users"), delete(
   - items: string (optional)
   - storeIds: string (optional)
 
-🔍 Indexes (1) [336ms]:
+🔍 Indexes (1) [187ms]:
   - idx_userId: key on [userId]
 
 📄 Documents: Unable to fetch (The current user is not authorized to perform the requested action.)
@@ -423,7 +459,7 @@ Collection: Orders (orders)
 Document security: enabled
 Collection permissions: (none)
 
-📋 Attributes (25) [246ms]:
+📋 Attributes (25) [194ms]:
   - userId: string (required)
   - orderNumber: string (required)
   - idempotencyKey: string (required)
@@ -440,7 +476,7 @@ Collection permissions: (none)
   - deliveryStreet: string (optional)
   - deliveryHouseDetails: string (optional)
   - deliveryLandmarkDirections: string (required)
-  - deliveryContactPhone: string (required)
+  - deliveryContactPhone: string (optional)
   - itemCount: integer (required)
   - storeCount: integer (required)
   - subtotalJmdCents: integer (required)
@@ -450,14 +486,15 @@ Collection permissions: (none)
   - schemaVersion: integer (required)
   - cartUpdatedAt: datetime (optional)
 
-🔍 Indexes (5) [248ms]:
+🔍 Indexes (6) [78ms]:
   - idx_idempotencyKey: unique on [idempotencyKey]
   - idx_orderNumber: unique on [orderNumber]
   - idx_userId: key on [userId]
   - idx_user_placed: key on [userId, placedAt]
   - idx_status: key on [status]
+  - idx_user_cart_revision: key on [userId, cartUpdatedAt, status]
 
-📄 Documents: 0 [349ms]
+📄 Documents: 0 [224ms]
 
 ============================================================
 Collection: Store Orders (store_orders)
@@ -465,7 +502,7 @@ Collection: Store Orders (store_orders)
 Document security: enabled
 Collection permissions: (none)
 
-📋 Attributes (16) [581ms]:
+📋 Attributes (16) [195ms]:
   - orderId: string (required)
   - userId: string (required)
   - storeLocationId: string (required)
@@ -483,12 +520,12 @@ Collection permissions: (none)
   - deliveredAt: datetime (optional)
   - cancelledAt: datetime (optional)
 
-🔍 Indexes (3) [237ms]:
+🔍 Indexes (3) [77ms]:
   - idx_orderId: key on [orderId]
   - idx_storeLocationId: key on [storeLocationId]
   - idx_store_status: key on [storeLocationId, status]
 
-📄 Documents: 0 [685ms]
+📄 Documents: 0 [90ms]
 
 ============================================================
 Collection: Order Items (order_items)
@@ -496,7 +533,7 @@ Collection: Order Items (order_items)
 Document security: enabled
 Collection permissions: (none)
 
-📋 Attributes (13) [372ms]:
+📋 Attributes (13) [200ms]:
   - orderId: string (required)
   - storeOrderId: string (required)
   - userId: string (required)
@@ -511,12 +548,35 @@ Collection permissions: (none)
   - unitPriceJmdCents: integer (required)
   - lineTotalJmdCents: integer (required)
 
-🔍 Indexes (3) [248ms]:
+🔍 Indexes (3) [195ms]:
   - idx_orderId: key on [orderId]
   - idx_storeOrderId: key on [storeOrderId]
   - idx_productId: key on [productId]
 
-📄 Documents: 0 [273ms]
+📄 Documents: 0 [145ms]
+
+============================================================
+Collection: Analytics Events (analytics_events)
+============================================================
+Document security: enabled
+Collection permissions: create("any")
+
+📋 Attributes (7) [84ms]:
+  - eventName: string (required)
+  - userId: string (optional)
+  - sessionId: string (required)
+  - propertiesJson: string (required)
+  - platform: string (required)
+  - appVersion: string (required)
+  - createdAt: string (required)
+
+🔍 Indexes (4) [80ms]:
+  - idx_eventName: key on [eventName]
+  - idx_userId: key on [userId]
+  - idx_createdAt: key on [createdAt]
+  - idx_event_created: key on [eventName, createdAt]
+
+📄 Documents: 0 [103ms]
 
 
 ============================================================
@@ -524,7 +584,7 @@ Collection permissions: (none)
 ============================================================
 
 ✓ products: EXISTS
-  - Attributes: 16
+  - Attributes: 25
   - Indexes: 9
   - Documents: 1050
   - Has 'name' attribute: ✗
@@ -543,7 +603,7 @@ Collection permissions: (none)
 ✗ store_locations: MISSING
 
 ✓ store_location_product: EXISTS
-  - Attributes: 14
+  - Attributes: 15
   - Indexes: 7
   - Documents: 0
   - Has 'product_id' attribute: ✓
@@ -558,7 +618,7 @@ Collection permissions: (none)
 
 ✓ orders: EXISTS
   - Attributes: 25
-  - Indexes: 5
+  - Indexes: 6
   - Documents: 0
   - Document security enabled: ✓
   - No collection-level permissions: ✓
@@ -609,28 +669,27 @@ Checking products -> categories relationships...
 ⚡ PERFORMANCE SUMMARY
 ============================================================
 
-Total inspection time: 20321ms (20.32s)
-Total API request time: 13299ms
-Average per collection: 739ms
+Total inspection time: 13793ms (13.79s)
+Total API request time: 9115ms
+Average per collection: 480ms
 
 ⚠️  Slow collections (>1000ms):
-  - Store Orders: 1503ms
-  - Categories: 1115ms
+  - SKU Registry: 1260ms
 
 
 ============================================================
 📈 CHANGES SINCE LAST INSPECTION
 ============================================================
 
-✨ New collections (4):
-  + Shopping Carts (carts)
-  + Orders (orders)
-  + Store Orders (store_orders)
-  + Order Items (order_items)
+✨ New collections (1):
+  + Analytics Events (analytics_events)
 
 📊 Collection changes:
-  Products: +1 attrs
-  Store Location Product: -1050 docs
+  Products: +9 attrs
+  Addresses: +5 attrs +1 indexes
+  Store Locations: +4 attrs +1 indexes
+  Store Location Product: +1 attrs
+  Orders: +1 indexes
 
 
 ✅ Inspection complete!

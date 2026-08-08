@@ -5,6 +5,7 @@ import { functions } from "./appwrite-client";
 import { reusableAttempt } from "./checkout-lifecycle";
 
 export const CHECKOUT_FUNCTION_ID = "place-order";
+export const DELIVERY_QUOTE_FUNCTION_ID = "quote-delivery";
 export const CASH_ON_DELIVERY = "cash_on_delivery" as const;
 
 export interface CheckoutRequest {
@@ -27,6 +28,9 @@ export interface CheckoutSuccessData {
   deliveryFeeJmdCents: number;
   discountJmdCents: number;
   totalJmdCents: number;
+  deliveryDistanceMeters?: number;
+  deliveryDurationSeconds?: number;
+  deliveryPricingVersion?: string;
   consumedRevision: string;
   idempotentReplay: boolean;
   cartReconciliation?: "cleared" | "revision_changed" | "failed" | "unknown";
@@ -45,6 +49,36 @@ export interface CheckoutErrorResponse {
 }
 
 export type CheckoutResponse = CheckoutSuccessResponse | CheckoutErrorResponse;
+
+export interface DeliveryQuoteData {
+  addressId: string;
+  cartRevision: string;
+  subtotalJmdCents: number;
+  deliveryFeeJmdCents: number;
+  discountJmdCents: number;
+  totalJmdCents: number;
+  deliveryDistanceMeters: number;
+  deliveryDurationSeconds?: number;
+  deliveryPricingVersion: string;
+}
+
+interface DeliveryQuoteSuccessResponse { ok: true; data: DeliveryQuoteData }
+interface DeliveryQuoteResponse { ok: false; error: { code: string; message: string; details?: Record<string, unknown>; retryable: boolean; requestId?: string } }
+
+export async function getDeliveryQuote(addressId: string, cartRevision: string): Promise<DeliveryQuoteData> {
+  const execution = await functions.createExecution({
+    functionId: DELIVERY_QUOTE_FUNCTION_ID,
+    body: JSON.stringify({ addressId, cartRevision }),
+    async: false,
+    method: ExecutionMethod.POST,
+    headers: { "content-type": "application/json" },
+  });
+  let response: DeliveryQuoteSuccessResponse | DeliveryQuoteResponse;
+  try { response = JSON.parse(execution.responseBody); }
+  catch { throw new CheckoutError("DELIVERY_DISTANCE_UNAVAILABLE", "We couldn't calculate delivery pricing right now.", true); }
+  if (!response.ok) throw new CheckoutError(response.error.code, response.error.message, response.error.retryable, response.error.details, response.error.requestId);
+  return response.data;
+}
 export type CheckoutAttemptState = "ready" | "submitting" | "outcome_unknown" | "succeeded";
 
 export interface CheckoutAttempt {

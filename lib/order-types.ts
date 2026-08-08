@@ -54,6 +54,9 @@ export interface Order {
   deliveryFeeJmdCents: number;
   discountJmdCents: number;
   totalJmdCents: number;
+  deliveryDistanceMeters?: number;
+  deliveryDurationSeconds?: number;
+  deliveryPricingVersion?: string;
   schemaVersion: number;
   cartUpdatedAt?: string;
   placedAt: string;

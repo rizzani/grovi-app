@@ -1,8 +1,9 @@
 import { CheckoutError } from "./errors.js";
 import { parseCart, validateRequest } from "./contract.js";
 import { documentId, orderNumber, requestFingerprint } from "./ids.js";
+import { calculateDeliveryFeeJmdCents, DELIVERY_PRICING_VERSION, MAX_DELIVERY_DISTANCE_KM, distanceKmFromMeters, validateCoordinates } from "./delivery-pricing.js";
+import { OsrmDistanceProvider } from "./distance-provider.js";
 
-const DELIVERY_FEE_JMD_CENTS = 0; // Temporary MVP business rule.
 const DISCOUNT_JMD_CENTS = 0;
 
 function optional(value) {
@@ -35,6 +36,9 @@ function responseFor(order, replay, cartReconciliation = "unknown") {
       deliveryFeeJmdCents: order.deliveryFeeJmdCents,
       discountJmdCents: order.discountJmdCents,
       totalJmdCents: order.totalJmdCents,
+      deliveryDistanceMeters: order.deliveryDistanceMeters,
+      deliveryDurationSeconds: order.deliveryDurationSeconds,
+      deliveryPricingVersion: order.deliveryPricingVersion,
       consumedRevision: order.cartUpdatedAt,
       idempotentReplay: replay,
       cartReconciliation,
@@ -125,7 +129,33 @@ async function priceCart(repo, rawItems, maxQuantity) {
   return priced;
 }
 
-function summarize(items) {
+async function priceDelivery(repo, stores, address, distanceProvider) {
+  const pricedStores = [];
+  for (const store of stores) {
+    if (!validateCoordinates(store)) {
+      throw new CheckoutError("STORE_LOCATION_COORDINATES_MISSING", "Delivery is temporarily unavailable for one of the selected stores.", 500);
+    }
+    let route;
+    try {
+      route = await distanceProvider.getDrivingDistance({
+        origin: { latitude: Number(store.latitude), longitude: Number(store.longitude) },
+        destination: { latitude: Number(address.latitude), longitude: Number(address.longitude) },
+      });
+    } catch (error) {
+      console.error("[Checkout] Driving distance unavailable", { storeId: store.storeId, error: error?.message });
+      throw new CheckoutError("DELIVERY_DISTANCE_UNAVAILABLE", "Delivery pricing is temporarily unavailable. Please retry.", 503, undefined, true);
+    }
+    const distanceKm = distanceKmFromMeters(route.distanceMeters);
+    if (distanceKm > MAX_DELIVERY_DISTANCE_KM) {
+      throw new CheckoutError("DELIVERY_OUT_OF_RANGE", "This delivery address is outside Grovi's delivery area.", 422, { maxDistanceKm: MAX_DELIVERY_DISTANCE_KM });
+    }
+    pricedStores.push({ ...store, deliveryDistanceMeters: Math.round(route.distanceMeters), deliveryDurationSeconds: Number.isFinite(route.durationSeconds) ? Math.round(route.durationSeconds) : undefined, deliveryFeeJmdCents: calculateDeliveryFeeJmdCents(distanceKm) });
+  }
+  return pricedStores;
+}
+
+function summarize(items, pricedStores) {
+  const fees = new Map(pricedStores.map((store) => [store.storeId, store]));
   const stores = new Map();
   for (const item of items) {
     const current = stores.get(item.storeId) || {
@@ -135,6 +165,9 @@ function summarize(items) {
       items: [],
       itemCount: 0,
       subtotalJmdCents: 0,
+      deliveryFeeJmdCents: fees.get(item.storeId).deliveryFeeJmdCents,
+      deliveryDistanceMeters: fees.get(item.storeId).deliveryDistanceMeters,
+      deliveryDurationSeconds: fees.get(item.storeId).deliveryDurationSeconds,
     };
     current.items.push(item);
     current.itemCount += item.quantity;
@@ -148,13 +181,15 @@ function summarize(items) {
     itemCount,
     storeCount: stores.size,
     subtotalJmdCents,
-    deliveryFeeJmdCents: DELIVERY_FEE_JMD_CENTS,
+    deliveryFeeJmdCents: [...stores.values()].reduce((total, store) => total + store.deliveryFeeJmdCents, 0),
+    deliveryDistanceMeters: [...stores.values()].reduce((total, store) => total + store.deliveryDistanceMeters, 0),
+    deliveryDurationSeconds: [...stores.values()].reduce((total, store) => total + (store.deliveryDurationSeconds || 0), 0) || undefined,
     discountJmdCents: DISCOUNT_JMD_CENTS,
-    totalJmdCents: subtotalJmdCents + DELIVERY_FEE_JMD_CENTS - DISCOUNT_JMD_CENTS,
+    totalJmdCents: subtotalJmdCents + [...stores.values()].reduce((total, store) => total + store.deliveryFeeJmdCents, 0) - DISCOUNT_JMD_CENTS,
   };
 }
 
-export async function placeOrder({ userId, input, repo, now = () => new Date().toISOString(), maxQuantity = 99 }) {
+export async function placeOrder({ userId, input, repo, now = () => new Date().toISOString(), maxQuantity = 99, distanceProvider = repo.distanceProvider || new OsrmDistanceProvider() }) {
   if (!userId) throw new CheckoutError("UNAUTHENTICATED", "Authentication is required.", 401);
   const request = validateRequest(input);
   const fingerprint = requestFingerprint(userId, request);
@@ -194,7 +229,10 @@ export async function placeOrder({ userId, input, repo, now = () => new Date().t
   }
   const rawItems = parseCart(cart);
   const items = await priceCart(repo, rawItems, maxQuantity);
-  const totals = summarize(items);
+  const deliveryStores = [...new Map(items.map((item) => [item.storeId, item])).values()].map((item) => repo.getStore(item.storeId));
+  const storesForDelivery = await Promise.all(deliveryStores);
+  const pricedDeliveryStores = storesForDelivery.map((store) => ({ storeId: store.$id, latitude: store.latitude, longitude: store.longitude }));
+  const totals = summarize(items, await priceDelivery(repo, pricedDeliveryStores, address, distanceProvider));
   const orderId = prior?.existing?.$id || documentId("ord", userId, request.clientRequestId);
   const timestamp = prior?.existing?.placedAt || now();
   const parentData = {
@@ -214,6 +252,9 @@ export async function placeOrder({ userId, input, repo, now = () => new Date().t
     deliveryHouseDetails: optional(address.houseDetails),
     deliveryLandmarkDirections: address.landmarkDirections || "",
     deliveryContactPhone: optional(address.contactPhone),
+    deliveryDistanceMeters: totals.deliveryDistanceMeters,
+    deliveryDurationSeconds: totals.deliveryDurationSeconds,
+    deliveryPricingVersion: DELIVERY_PRICING_VERSION,
     itemCount: totals.itemCount,
     storeCount: totals.storeCount,
     subtotalJmdCents: totals.subtotalJmdCents,
@@ -252,9 +293,11 @@ export async function placeOrder({ userId, input, repo, now = () => new Date().t
       status: "pending",
       itemCount: store.itemCount,
       subtotalJmdCents: store.subtotalJmdCents,
-      deliveryFeeJmdCents: 0,
+      deliveryFeeJmdCents: store.deliveryFeeJmdCents,
       discountJmdCents: 0,
-      totalJmdCents: store.subtotalJmdCents,
+      totalJmdCents: store.subtotalJmdCents + store.deliveryFeeJmdCents,
+      deliveryDistanceMeters: store.deliveryDistanceMeters,
+      deliveryDurationSeconds: store.deliveryDurationSeconds,
     };
     await repo.createOrVerifyStoreOrder(storeOrderId, storeOrderData, userId, assertSame);
     for (const item of store.items) {
@@ -291,4 +334,42 @@ export async function placeOrder({ userId, input, repo, now = () => new Date().t
   parent = await repo.updateOrder(orderId, { status: "placed" });
   const cartReconciliation = await reconcileCart(repo, userId, cartRevision);
   return responseFor(parent, Boolean(prior?.existing), cartReconciliation);
+}
+
+export async function quoteOrder({ userId, addressId, cartRevision, repo, distanceProvider = repo.distanceProvider || new OsrmDistanceProvider(), maxQuantity = 99 }) {
+  if (!userId) throw new CheckoutError("UNAUTHENTICATED", "Authentication is required.", 401);
+  const address = await repo.getAddress(addressId);
+  if (!address) throw new CheckoutError("ADDRESS_NOT_FOUND", "The selected address was not found.", 404);
+  if (address.userId !== userId) throw new CheckoutError("ADDRESS_NOT_OWNED", "The selected address does not belong to this user.", 403);
+  if (!Number.isFinite(Number(address.latitude)) || !Number.isFinite(Number(address.longitude))
+    || Number(address.latitude) < -90 || Number(address.latitude) > 90
+    || Number(address.longitude) < -180 || Number(address.longitude) > 180) {
+    throw new CheckoutError("INVALID_DELIVERY_LOCATION", "Choose a valid delivery location before checkout.", 422);
+  }
+  const cart = await repo.getCart(userId);
+  if (!cart) throw new CheckoutError("EMPTY_CART", "The cart is empty.", 409);
+  if (cart.updatedAt !== cartRevision) {
+    throw new CheckoutError("CART_REVISION_CONFLICT", "The cart changed before delivery pricing was calculated.", 409, {
+      requestedRevision: cartRevision,
+      currentRevision: cart.updatedAt,
+    });
+  }
+  const items = await priceCart(repo, parseCart(cart), maxQuantity);
+  const storesForDelivery = await Promise.all([...new Set(items.map((item) => item.storeId))].map((storeId) => repo.getStore(storeId)));
+  const pricedDeliveryStores = storesForDelivery.map((store) => ({ storeId: store.$id, latitude: store.latitude, longitude: store.longitude }));
+  const totals = summarize(items, await priceDelivery(repo, pricedDeliveryStores, address, distanceProvider));
+  return {
+    ok: true,
+    data: {
+      addressId,
+      cartRevision,
+      subtotalJmdCents: totals.subtotalJmdCents,
+      deliveryFeeJmdCents: totals.deliveryFeeJmdCents,
+      discountJmdCents: totals.discountJmdCents,
+      totalJmdCents: totals.totalJmdCents,
+      deliveryDistanceMeters: totals.deliveryDistanceMeters,
+      deliveryDurationSeconds: totals.deliveryDurationSeconds,
+      deliveryPricingVersion: DELIVERY_PRICING_VERSION,
+    },
+  };
 }

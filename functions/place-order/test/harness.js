@@ -15,6 +15,7 @@ export class MemoryRepository {
     this.audits = new Map();
     this.failNextOrderItemCreate = false;
     this.failCartClear = false;
+    this.distanceProvider = { getDrivingDistance: async ({ origin }) => ({ distanceMeters: origin.longitude < -76.85 ? 2400 : 5800, durationSeconds: 600 }) };
   }
 
   isConflict(error) { return error?.code === 409; }
@@ -104,8 +105,8 @@ export function fixture({ multiStore = false } = {}) {
       { $id: "product-2", sku: "SKU-2", title: "Peas", brand: "Grovi", primary_image_url: "https://example.test/peas.jpg", unit_size: "500 g" },
     ],
     stores: [
-      { $id: "store-1", display_name: "Kingston Store", name: "Kingston", brand_id: "brand-1", is_active: true },
-      { $id: "store-2", display_name: "Portmore Store", name: "Portmore", brand_id: "brand-2", is_active: true },
+      { $id: "store-1", display_name: "Kingston Store", name: "Kingston", brand_id: "brand-1", is_active: true, latitude: 18.01, longitude: -76.80 },
+      { $id: "store-2", display_name: "Portmore Store", name: "Portmore", brand_id: "brand-2", is_active: true, latitude: 17.96, longitude: -76.89 },
     ],
   });
   return {

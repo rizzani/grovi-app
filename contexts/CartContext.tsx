@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef, useCallback } from "react";
 import {
   Cart,
   CartItem,
@@ -470,7 +470,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   /**
    * Validate cart items against current database state
    */
-  const validateCartItems = async (): Promise<CartValidationResult> => {
+  const validateCartItems = useCallback(async (): Promise<CartValidationResult> => {
     try {
       setValidationState((prev) => ({ ...prev, isValidating: true }));
       const validation = await validateCart(cart);
@@ -485,7 +485,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       setValidationState((prev) => ({ ...prev, isValidating: false }));
       throw error;
     }
-  };
+  }, [cart]);
 
   /**
    * Sync cart with current database state (update prices, remove unavailable items)
