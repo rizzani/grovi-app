@@ -253,13 +253,47 @@ function verifyAttribute(existing: any, expected: SchemaAttribute, collectionId:
   if (errors.length) throw new Error(`Cannot non-destructively reconcile ${collectionId}.${expected.key}: ${errors.join(", ")}`);
 }
 
+async function updateSafeOptionalStringAttribute(
+  collectionId: string,
+  existing: any,
+  expected: Extract<SchemaAttribute, { type: "string" }>
+) {
+  if (
+    existing.type !== "string" ||
+    existing.required !== true ||
+    expected.required !== false ||
+    existing.size !== expected.size
+  ) {
+    return false;
+  }
+
+  await adminDatabases.updateStringAttribute({
+    databaseId,
+    collectionId,
+    key: expected.key,
+    required: false,
+    xdefault: existing.default ?? null,
+    size: expected.size,
+  });
+  return true;
+}
+
 async function ensureSchemaAttribute(collectionId: string, attribute: SchemaAttribute) {
   const base = `/databases/${databaseId}/collections/${collectionId}/attributes`;
   try {
     const existing = await appwriteRequest("GET", `${base}/${attribute.key}`);
-    verifyAttribute(existing, attribute, collectionId);
+    const updatedToOptional =
+      attribute.type === "string" &&
+      await updateSafeOptionalStringAttribute(collectionId, existing, attribute);
+    if (!updatedToOptional) {
+      verifyAttribute(existing, attribute, collectionId);
+    } else {
+      console.log(`  ✓ Updated attribute '${attribute.key}' to optional`);
+    }
     await waitForSchemaResource(`${base}/${attribute.key}`, `${collectionId}.${attribute.key}`);
-    console.log(`  - Attribute '${attribute.key}' already exists and matches`);
+    if (existing.required !== true || attribute.required !== false) {
+      console.log(`  - Attribute '${attribute.key}' already exists and matches`);
+    }
     return;
   } catch (error: any) {
     if (error.code !== 404) throw error;
