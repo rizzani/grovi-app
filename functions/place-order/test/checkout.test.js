@@ -37,6 +37,14 @@ test("valid multi-store checkout", async () => {
   assert.equal(repo.orderItems.size, 2);
 });
 
+test("checkout preserves an address without an optional contact phone", async () => {
+  const { repo, input } = fixture();
+  delete repo.addresses.get("address-1").contactPhone;
+  const result = await placeOrder({ userId: "user-1", input, repo, now: NOW });
+  assert.equal(result.data.status, "placed");
+  assert.equal(repo.orders.get(result.data.orderId).deliveryContactPhone, undefined);
+});
+
 test("empty cart", async () => {
   const { repo, input } = fixture();
   repo.carts.get("user-1").items = "[]";

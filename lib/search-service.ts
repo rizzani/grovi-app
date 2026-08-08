@@ -89,6 +89,17 @@ export interface Category {
   updatedAt?: string;
 }
 
+export function normalizeCategoryDocument(document: Models.Document & { name?: string; parent_id?: string; parentId?: string; createdAt?: string; updatedAt?: string }): Category {
+  if (typeof document.name !== "string") throw new Error(`Category ${document.$id} is missing required name`);
+  return {
+    $id: document.$id,
+    name: document.name,
+    parentId: document.parentId ?? document.parent_id,
+    createdAt: document.createdAt ?? document.$createdAt,
+    updatedAt: document.updatedAt ?? document.$updatedAt,
+  };
+}
+
 export interface StoreLocation {
   $id: string;
   name: string;
@@ -353,7 +364,7 @@ export async function getAllCategories(): Promise<Category[]> {
       CATEGORIES_COLLECTION_ID,
       [Query.limit(1000)]
     );
-    return response.documents;
+    return response.documents.map((document) => normalizeCategoryDocument(document));
   } catch (error: any) {
     console.error("[Categories] Error fetching all categories:", error);
     throw error;

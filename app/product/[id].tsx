@@ -15,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
 import ProductImageGallery from "../../components/ProductImageGallery";
 import { databases, databaseId } from "../../lib/appwrite-client";
+import { normalizeCategoryDocument } from "../../lib/search-service";
 import { Query } from "appwrite";
 import { useCart } from "../../contexts/CartContext";
 import { AnalyticsEvent, trackEvent } from "../../lib/analytics";
@@ -231,11 +232,7 @@ export default function ProductDetailScreen() {
             productData.category_leaf_id
           );
           
-          setCategory({
-            $id: categoryDoc.$id,
-            name: categoryDoc.name,
-            parentId: categoryDoc.parentId,
-          });
+          setCategory(normalizeCategoryDocument(categoryDoc));
         } catch (err) {
           console.error("Error fetching category:", err);
         }

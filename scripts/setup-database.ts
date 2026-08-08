@@ -113,6 +113,8 @@ const databases = new Databases(client);
 type SchemaAttribute =
   | { key: string; type: "string"; size: number; required: boolean }
   | { key: string; type: "integer"; required: boolean; min?: number }
+  | { key: string; type: "float"; required: boolean; min?: number; max?: number }
+  | { key: string; type: "boolean"; required: boolean; default?: boolean }
   | { key: string; type: "datetime"; required: boolean }
   | { key: string; type: "enum"; required: boolean; elements: string[] };
 
@@ -151,7 +153,7 @@ const orderCollectionSchemas: CollectionSchema[] = [
       { key: "deliveryStreet", type: "string", size: 60, required: false },
       { key: "deliveryHouseDetails", type: "string", size: 30, required: false },
       { key: "deliveryLandmarkDirections", type: "string", size: 240, required: true },
-      { key: "deliveryContactPhone", type: "string", size: 20, required: true },
+      { key: "deliveryContactPhone", type: "string", size: 20, required: false },
       { key: "itemCount", type: "integer", required: true, min: 1 },
       { key: "storeCount", type: "integer", required: true, min: 1 },
       { key: "subtotalJmdCents", type: "integer", required: true, min: 0 },
@@ -266,6 +268,91 @@ async function ensureSchemaAttribute(collectionId: string, attribute: SchemaAttr
   await appwriteRequest("POST", `${base}/${type}`, body);
   await waitForSchemaResource(`${base}/${attribute.key}`, `${collectionId}.${attribute.key}`);
   console.log(`  ✓ Created attribute '${attribute.key}' (${type})`);
+}
+
+async function ensureOptionalRuntimeAttribute(collectionId: string, attribute: SchemaAttribute) {
+  const base = `/databases/${databaseId}/collections/${collectionId}/attributes`;
+  try {
+    const existing = await appwriteRequest("GET", `${base}/${attribute.key}`);
+    verifyAttribute(existing, attribute, collectionId);
+    return;
+  } catch (error: any) {
+    if (error.code !== 404) throw error;
+  }
+  const { type, ...body } = attribute;
+  await appwriteRequest("POST", `${base}/${type}`, body);
+  await waitForSchemaResource(`${base}/${attribute.key}`, `${collectionId}.${attribute.key}`);
+  console.log(`  ✓ Created runtime attribute '${collectionId}.${attribute.key}' (${type}, optional)`);
+}
+
+async function ensureRuntimeSchemaExtensions() {
+  const extensions: Array<{ collectionId: string; attributes: SchemaAttribute[]; indexes: SchemaIndex[] }> = [
+    {
+      collectionId: "products",
+      attributes: [
+        { key: "isActive", type: "boolean", required: false, default: true },
+        { key: "isFeatured", type: "boolean", required: false, default: false },
+        { key: "featuredPriority", type: "integer", required: false, min: 0 },
+        { key: "featuredStartAt", type: "datetime", required: false },
+        { key: "featuredEndAt", type: "datetime", required: false },
+        { key: "isEssential", type: "boolean", required: false, default: false },
+        { key: "manualPopularityScore", type: "float", required: false, min: 0 },
+        { key: "viewCount", type: "integer", required: false, min: 0 },
+        { key: "cartAddCount", type: "integer", required: false, min: 0 },
+        { key: "orderCount", type: "integer", required: false, min: 0 },
+        { key: "salePrice", type: "integer", required: false, min: 0 },
+        { key: "promotionStartAt", type: "datetime", required: false },
+        { key: "promotionEndAt", type: "datetime", required: false },
+        { key: "rating", type: "float", required: false, min: 0, max: 5 },
+        { key: "review_count", type: "integer", required: false, min: 0 },
+      ],
+      indexes: [],
+    },
+    {
+      collectionId: "store_location",
+      attributes: [
+        { key: "delivery_time_minutes", type: "integer", required: false, min: 0 },
+        { key: "latitude", type: "float", required: false, min: -90, max: 90 },
+        { key: "longitude", type: "float", required: false, min: -180, max: 180 },
+        { key: "logo_url", type: "string", size: 2048, required: false },
+      ],
+      indexes: [
+        { key: "idx_parish_active", type: "key", attributes: ["parish", "is_active"], orders: ["ASC", "ASC"] },
+      ],
+    },
+    {
+      collectionId: "store_location_product",
+      attributes: [
+        { key: "sale_price_jmd_cents", type: "integer", required: false, min: 0 },
+      ],
+      indexes: [],
+    },
+    {
+      collectionId: "addresses",
+      attributes: [],
+      indexes: [
+        { key: "idx_user_default", type: "key", attributes: ["userId", "default"], orders: ["ASC", "DESC"] },
+      ],
+    },
+  ];
+
+  for (const extension of extensions) {
+    try {
+      await appwriteRequest("GET", `/databases/${databaseId}/collections/${extension.collectionId}`);
+    } catch (error: any) {
+      if (error.code === 404) {
+        console.warn(`  - Collection '${extension.collectionId}' is absent; skipping runtime extensions`);
+        continue;
+      }
+      throw error;
+    }
+    for (const attribute of extension.attributes) {
+      await ensureOptionalRuntimeAttribute(extension.collectionId, attribute);
+    }
+    for (const index of extension.indexes) {
+      await ensureSchemaIndex(extension.collectionId, index);
+    }
+  }
 }
 
 async function ensureSchemaIndex(collectionId: string, index: SchemaIndex) {
@@ -2035,6 +2122,7 @@ async function setupDatabase() {
     // These collections intentionally have no collection-level grants. The
     // Checkout Function must grant read(Role.user(userId)) on each document.
     await ensureOrderCollections();
+    await ensureRuntimeSchemaExtensions();
 
     console.log("\n✅ Database setup completed successfully!");
     console.log(`\nDatabase ID: ${databaseId}`);

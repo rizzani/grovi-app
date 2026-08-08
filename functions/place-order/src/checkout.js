@@ -213,7 +213,7 @@ export async function placeOrder({ userId, input, repo, now = () => new Date().t
     deliveryStreet: optional(address.street),
     deliveryHouseDetails: optional(address.houseDetails),
     deliveryLandmarkDirections: address.landmarkDirections || "",
-    deliveryContactPhone: address.contactPhone,
+    deliveryContactPhone: optional(address.contactPhone),
     itemCount: totals.itemCount,
     storeCount: totals.storeCount,
     subtotalJmdCents: totals.subtotalJmdCents,

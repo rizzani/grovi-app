@@ -47,7 +47,7 @@ export interface Order {
   deliveryStreet?: string;
   deliveryHouseDetails?: string;
   deliveryLandmarkDirections: string;
-  deliveryContactPhone: string;
+  deliveryContactPhone?: string;
   itemCount: number;
   storeCount: number;
   subtotalJmdCents: number;
